@@ -1,6 +1,7 @@
 package humanize_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,6 +26,7 @@ humanized_time_future = humanize.time(tomorrow)
 humanized_rel_time = humanize.relative_time(now, tomorrow)
 humanized_date_format = humanize.time_format("yyyy-MM-dd")
 humanized_date_format_date = humanize.time_format("yyyy-MM-dd", now)
+humanized_day_of_week = humanize.day_of_week(now)
 humanized_size = humanize.bytes(1401946112)
 humanized_size_iec = humanize.bytes(1401946112, True)
 humanized_size_parsed = humanize.parse_bytes("42 MB")
@@ -51,6 +53,9 @@ assert(humanized_time_future == "1 day from now")
 assert(humanized_rel_time == "1 day ")
 assert(humanized_date_format == "2006-01-02")
 assert(humanized_date_format_date == iso_date)
+weekday = now.format("Monday")
+weekday_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+assert(weekday_names[humanized_day_of_week] == weekday)
 assert(humanized_size == "1.4 GB")
 assert(humanized_size_iec == "1.3 GiB")
 assert(humanized_size_parsed == 42000000)
@@ -75,11 +80,11 @@ def main():
 `
 
 func TestHumanize(t *testing.T) {
-	app := &runtime.Applet{}
-	err := app.Load("human.star", []byte(humanSource), nil)
+	app, err := runtime.NewApplet("human.star", []byte(humanSource))
 	assert.NoError(t, err)
+	assert.NotNil(t, app)
 
-	screens, err := app.Run(map[string]string{})
+	screens, err := app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.NotNil(t, screens)
 }

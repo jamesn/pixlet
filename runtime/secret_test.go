@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 
@@ -46,10 +47,10 @@ func TestSecretDecrypt(t *testing.T) {
 	err = khPub.WriteWithNoSecrets(keyset.NewJSONWriter(pubJSON))
 	require.NoError(t, err)
 
-	// encrypt the secret
+	// encrypt the secret using app ID
 	encrypted, err := (&SecretEncryptionKey{
 		PublicKeysetJSON: pubJSON.Bytes(),
-	}).Encrypt("test", plaintext)
+	}).Encrypt("testid", plaintext)
 	require.NoError(t, err)
 	assert.NotEqual(t, encrypted, "")
 
@@ -71,14 +72,10 @@ def main():
 	return render.Root(child=render.Box())
 `, plaintext, encrypted)
 
-	app := &Applet{
-		SecretDecryptionKey: decryptionKey,
-	}
-
-	err = app.Load("test.star", []byte(src), nil)
+	app, err := NewApplet("testid", []byte(src), WithSecretDecryptionKey(decryptionKey))
 	require.NoError(t, err)
 
-	roots, err := app.Run(nil)
+	roots, err := app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(roots))
 }
@@ -128,14 +125,10 @@ def main():
 	return render.Root(child=render.Box())
 `, plaintext, encrypted)
 
-	app := &Applet{
-		SecretDecryptionKey: nil,
-	}
-
-	err = app.Load("test.star", []byte(src), nil)
+	app, err := NewApplet("test.star", []byte(src))
 	require.NoError(t, err)
 
-	roots, err := app.Run(nil)
+	roots, err := app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(roots))
 }

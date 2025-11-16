@@ -1,5 +1,5 @@
 # Pixlet
-
+[![Docs](https://img.shields.io/badge/docs-tidbyt.dev-blue?style=flat-square)](https://tidbyt.dev)
 [![Build & test](https://img.shields.io/github/workflow/status/tidbyt/pixlet/pixlet?style=flat-square)](https://github.com/tidbyt/pixlet/actions)
 [![Discourse](https://img.shields.io/discourse/status?server=https%3A%2F%2Fdiscuss.tidbyt.com&style=flat-square)](https://discuss.tidbyt.com/)
 [![Discord Server](https://img.shields.io/discord/928484660785336380?style=flat-square)](https://discord.gg/r45MXG4kZc)
@@ -15,6 +15,8 @@ Apps developed with Pixlet can be served in a browser, rendered as WebP or
 GIF animations, or pushed to a physical Tidbyt device.
 
 ## Documentation
+
+> Hey! We have a new docs site! Check it out at [tidbyt.dev](https://tidbyt.dev). We'll be updating this repo in the coming weeks.
 
 - [Getting started](#getting-started)
 - [How it works](#how-it-works)
@@ -58,7 +60,7 @@ def main():
 Render and serve it with:
 
 ```console
-curl https://raw.githubusercontent.com/tidbyt/pixlet/main/examples/hello_world.star | \
+curl https://raw.githubusercontent.com/tidbyt/pixlet/main/examples/hello_world/hello_world.star | \
   pixlet serve /dev/stdin
 ```
 
@@ -131,12 +133,22 @@ make an applet like this.
 If you have a Tidbyt, `pixlet` can push apps directly to it. For example,
 to show the Bitcoin tracker on your Tidbyt:
 
-```
-pixlet render examples/bitcoin.star
-pixlet push --api-token <YOUR API TOKEN> <YOUR DEVICE ID> examples/bitcoin.webp
+```console
+# render the bitcoin example
+pixlet render examples/bitcoin/bitcoin.star
+
+# login to your Tidbyt account
+pixlet login
+
+# list available Tidbyt devices
+pixlet devices
+
+# push to your favorite Tidbyt
+pixlet push <YOUR DEVICE ID> examples/bitcoin/bitcoin.webp
 ```
 
-To get the ID and API key for a device, open the settings for the device in the Tidbyt app on your phone, and tap **Get API key**.
+To get the ID for a device, run `pixlet devices`. Alternatively, you can
+open the settings for the device in the Tidbyt app on your phone, and tap **Get API key**.
 
 If all goes well, you should see the Bitcoin tracker appear on your Tidbyt:
 
@@ -145,9 +157,9 @@ If all goes well, you should see the Bitcoin tracker appear on your Tidbyt:
 ## Push as an Installation
 Pushing an applet to your Tidbyt without an installation ID simply displays your applet one time. If you would like your applet to continously display as part of the rotation, add an installation ID to the push command:
 
-```
-pixlet render examples/bitcoin.star
-pixlet push --api-token <YOUR API TOKEN> --installation-id <INSTALLATION ID> <YOUR DEVICE ID> examples/bitcoin.webp
+```console
+pixlet render examples/bitcoin/bitcoin.star
+pixlet push --installation-id <INSTALLATION ID> <YOUR DEVICE ID> examples/bitcoin/bitcoin.webp
 ```
 
 For example, if we set the `installationID` to "Bitcoin", it would appear in the mobile app as follows:

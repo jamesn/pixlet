@@ -1,25 +1,30 @@
 package runtime
 
 import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
+	"testing/fstest"
 
 	starlibbase64 "github.com/qri-io/starlib/encoding/base64"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.starlark.net/starlark"
+
+	"tidbyt.dev/pixlet/schema"
 )
 
 func TestLoadEmptySrc(t *testing.T) {
-	app := &Applet{}
-	err := app.Load("test.star", []byte{}, nil)
+	_, err := NewApplet("test.star", []byte{})
 	assert.Error(t, err)
 }
 
 func TestLoadMalformed(t *testing.T) {
 	src := "this is not valid starlark"
-	app := &Applet{}
-	err := app.Load("test.star", []byte(src), nil)
+	_, err := NewApplet("test.star", []byte(src))
 	assert.Error(t, err)
 }
 
@@ -30,9 +35,9 @@ load("render.star", "render")
 def main():
     return render.Root(child=render.Box())
 `
-	app := &Applet{}
-	err := app.Load("test.star", []byte(src), nil)
+	app, err := NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
+	assert.NotNil(t, app)
 
 	// As is this
 	src = `
@@ -42,9 +47,9 @@ def main2():
 
 main = main2
 `
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), nil)
+	app, err = NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
+	assert.NotNil(t, app)
 
 	// And this (a lambda is a function)
 	src = `
@@ -54,9 +59,9 @@ def main2():
 
 main = lambda: main2()
 `
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), nil)
+	app, err = NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
+	assert.NotNil(t, app)
 
 	// But not this, because a string is not a function
 	src = `
@@ -66,8 +71,7 @@ def main2():
 
 main = "main2"
 `
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), nil)
+	_, err = NewApplet("test.star", []byte(src))
 	assert.Error(t, err)
 
 	// And not this either, because here main is gone
@@ -76,10 +80,8 @@ load("render.star", "render")
 def main2():
     return render.Root(child=render.Box())
 `
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), nil)
+	_, err = NewApplet("test.star", []byte(src))
 	assert.Error(t, err)
-
 }
 
 func TestRunMainReturnsFrames(t *testing.T) {
@@ -89,10 +91,10 @@ load("render.star", "render")
 def main():
     return [render.Box()]
 `
-	app := &Applet{}
-	err := app.Load("test.star", []byte(src), nil)
+	app, err := NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
-	screens, err := app.Run(map[string]string{})
+	assert.NotNil(t, app)
+	screens, err := app.Run(context.Background())
 	assert.Error(t, err)
 	assert.Nil(t, screens)
 
@@ -103,10 +105,10 @@ def main():
     return render.Root(child=render.Box())
 `
 
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), nil)
+	app, err = NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
-	screens, err = app.Run(map[string]string{})
+	assert.NotNil(t, app)
+	screens, err = app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.NotNil(t, screens)
 
@@ -116,10 +118,10 @@ load("render.star", "render")
 def main():
     return [render.Root(child=render.Box()), render.Root(child=render.Text("hi"))]
 `
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), nil)
+	app, err = NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
-	screens, err = app.Run(map[string]string{})
+	assert.NotNil(t, app)
+	screens, err = app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.NotNil(t, screens)
 }
@@ -138,10 +140,10 @@ load("render.star", "render")
 def main():
     return render.Root(child=render.Box())
 `
-	app := &Applet{}
-	err := app.Load("test.star", []byte(src), nil)
+	app, err := NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
-	roots, err := app.Run(config)
+	assert.NotNil(t, app)
+	roots, err := app.RunWithConfig(context.Background(), config)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(roots))
 
@@ -167,18 +169,59 @@ def main(config):
 
 	return [render.Root(child=render.Box()) for _ in range(int(config["one"]) + int(config["two"]))]
 `
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), nil)
+	app, err = NewApplet("test.star", []byte(src))
 	require.NoError(t, err)
-	roots, err = app.Run(config)
+	require.NotNil(t, app)
+	roots, err = app.RunWithConfig(context.Background(), config)
 	require.NoError(t, err)
 	assert.Equal(t, 3, len(roots))
+}
+
+func TestLoadMultipleFiles(t *testing.T) {
+	mainSrc := `
+load("render.star", "render")
+def main():
+    return render.Root(child=render.Box())
+`
+	schemaDefSrc := `
+load("schema.star", "schema")
+def get_schema():
+    return schema.Schema(
+        version = "1",
+				fields = [],
+		)
+`
+	vfs := fstest.MapFS{
+		"main.star":       {Data: []byte(mainSrc)},
+		"schema_def.star": {Data: []byte(schemaDefSrc)},
+	}
+
+	app, err := NewAppletFromFS("multiple_files", vfs)
+	require.NoError(t, err)
+	require.NotNil(t, app)
+
+	var s schema.Schema
+	json.Unmarshal(app.SchemaJSON, &s)
+	assert.Equal(t, "1", s.Version)
+
+	roots, err := app.Run(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, roots)
+	assert.Equal(t, 1, len(roots))
+
+	// multiple main functions should fail
+	vfs["main2.star"] = &fstest.MapFile{
+		Data: []byte(mainSrc),
+	}
+	_, err = NewAppletFromFS("multiple_files_multiple_mains", vfs)
+	assert.Error(t, err)
 }
 
 func TestModuleLoading(t *testing.T) {
 	// Our basic set of modules can be imported
 	src := `
 load("render.star", "render")
+load("bsoup.star", "bsoup")
 load("encoding/base64.star", "base64")
 load("encoding/json.star", "json")
 load("http.star", "http")
@@ -203,12 +246,14 @@ def main():
         fail("re broken")
     if time.parse_duration("10s").seconds != 10:
         fail("time broken")
+    if bsoup.parseHtml("<h1>foo</h1>").find("h1").get_text() != "foo":
+    	fail("bsoup broken")
     return render.Root(child=render.Box())
 `
-	app := &Applet{}
-	err := app.Load("test.star", []byte(src), nil)
+	app, err := NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
-	roots, err := app.Run(map[string]string{})
+	assert.NotNil(t, app)
+	roots, err := app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(roots))
 
@@ -227,84 +272,185 @@ def main():
         fail("something went wrong")
     return render.Root(child=render.Box())
 `
-	app = &Applet{}
-	err = app.Load("test.star", []byte(src), loader)
+	app, err = NewApplet("test.star", []byte(src), WithModuleLoader(loader))
 	assert.NoError(t, err)
-	roots, err = app.Run(map[string]string{})
+	roots, err = app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(roots))
-
 }
 
-func TestThreadInitializer(t *testing.T) {
+func TestDependency(t *testing.T) {
+	// src.star depends on hello.star
 	src := `
 load("render.star", "render")
+load("hello.star", "hello")
+
 def main():
-	print('foobar')
-	return render.Root(child=render.Box())
+		if hello.world() != "hello world":
+				fail("something went wrong")
+		return render.Root(child=render.Box())
 `
-	// override the print function of the thread
-	var printedText string
-	initializer := func(thread *starlark.Thread) *starlark.Thread {
-		thread.Print = func(thread *starlark.Thread, msg string) {
-			printedText += msg
-		}
-		return thread
+
+	helloSrc := `
+def _world():
+		return "hello world"
+
+hello = struct(
+	world = _world,
+)
+`
+
+	vfs := fstest.MapFS{
+		"src.star":   {Data: []byte(src)},
+		"hello.star": {Data: []byte(helloSrc)},
 	}
 
-	app := &Applet{}
-	err := app.Load("test.star", []byte(src), nil)
+	app, err := NewAppletFromFS("test", vfs)
 	assert.NoError(t, err)
-	_, err = app.Run(map[string]string{}, initializer)
-	assert.NoError(t, err)
+	if assert.NotNil(t, app) {
+		roots, err := app.Run(context.Background())
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(roots))
+	}
 
-	// our print function should have been called
-	assert.Equal(t, "foobar", printedText)
-}
-
-func TestXPathModule(t *testing.T) {
-	src := `
-load("render.star", r="render")
-load("xpath.star", "xpath")
+	// src2.star shouldn't be able to access private function from hello.star
+	src2 := `
+load("render.star", "render")
+load("hello.star", "_world")
 
 def main():
-    xml = """
-<foo>
-   <bar>1337</bar>
-   <bar>4711</bar>
-</foo>
-"""
+		return render.Root(child=render.Box())
+	`
 
-    d = xpath.loads(xml)
+	vfs2 := fstest.MapFS{
+		"src2.star":  {Data: []byte(src2)},
+		"hello.star": {Data: []byte(helloSrc)},
+	}
 
-    t = d.query("/foo/bar")
-    if t != "1337":
-        fail(t)
+	_, err = NewAppletFromFS("test", vfs2)
+	assert.ErrorContains(t, err, "not exported")
+}
 
-    t = d.query_all("/foo/bar")
-    if len(t) != 2:
-        fail(len(t))
-    if t[0] != "1337":
-        fail(t[0])
-    if t[1] != "4711":
-        fail(t[1])
-
-    t = d.query("/foo/doesntexist")
-    if t != None:
-        fail(t)
-
-    t = d.query_all("/foo/doesntexist")
-    if len(t) != 0:
-        fail(t)
-
-    return [r.Root(child=r.Text("1337"))]
+func TestCircularDependency(t *testing.T) {
+	// Module A depends on module B
+	srcA := `
+load("b.star", "b")
+def a():
+	return b.b()
 `
-	app := &Applet{}
-	err := app.Load("test.star", []byte(src), nil)
+	// Module B depends on module A
+	srcB := `
+load("a.star", "a")
+def b():
+	return a.a()
+`
+	vfs := fstest.MapFS{
+		"a.star": {Data: []byte(srcA)},
+		"b.star": {Data: []byte(srcB)},
+	}
+	_, err := NewAppletFromFS("circular_dependency", vfs)
+	assert.ErrorContains(t, err, "circular dependency")
+}
+
+func TestTimezoneDatabase(t *testing.T) {
+	src := `
+load("render.star", "render")
+load("time.star", "time")
+def main():
+    # Fails if America/Los_Angeles is an unknown system.
+	t = time.time(hour = 21, minute = 47, location = "America/Los_Angeles")
+	return render.Root(child=render.Box())
+`
+
+	app, err := NewApplet("test.star", []byte(src))
 	assert.NoError(t, err)
-	screens, err := app.Run(map[string]string{})
+	assert.NotNil(t, app)
+	_, err = app.Run(context.Background())
 	assert.NoError(t, err)
-	assert.NotNil(t, screens)
+}
+
+func TestZIPModule(t *testing.T) {
+	// Create a new zip file to read from starlark
+	// https://go.dev/src/archive/zip/example_test.go
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+	files := []struct {
+		Name, Body string
+	}{
+		{"readme.txt", "This archive contains some text files."},
+		{"gopher.txt", "Gopher names:\nGeorge\nGeoffrey\nGonzo"},
+		{"todo.txt", "Get animal handling licence.\nWrite more examples."},
+	}
+	for _, file := range files {
+		f, err := w.Create(file.Name)
+		assert.NoError(t, err)
+		_, err = f.Write([]byte(file.Body))
+		assert.NoError(t, err)
+	}
+	err := w.Close()
+	assert.NoError(t, err)
+
+	src := `
+load("compress/zipfile.star", "zipfile")
+def main(config):
+    z = zipfile.ZipFile(config.get("ZIP_BYTES"))
+    print(z.namelist())
+    zf = z.open("readme.txt")
+    print(zf.read())
+    return []
+`
+
+	// override the print function of the thread so we can check we got correct
+	// values from the zip module.
+	var printedText []string
+	printFunc := func(thread *starlark.Thread, msg string) {
+		printedText = append(printedText, msg)
+	}
+
+	app, err := NewApplet("test.star", []byte(src), WithPrintFunc(printFunc))
+	require.NoError(t, err)
+	require.NotNil(t, app)
+	_, err = app.RunWithConfig(
+		context.Background(),
+		map[string]string{"ZIP_BYTES": buf.String()},
+	)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []string{
+		"[\"readme.txt\", \"gopher.txt\", \"todo.txt\"]",
+		"This archive contains some text files.",
+	}, printedText)
+}
+
+func TestReadFile(t *testing.T) {
+	src := `
+load("hello.txt", hello = "file")
+
+def assert_eq(message, actual, expected):
+	if not expected == actual:
+		fail(message, "-", "expected", expected, "actual", actual)
+
+def test_readall():
+	assert_eq("readall", hello.readall(), "hello world")
+
+def test_readall_binary():
+	assert_eq("readall_binary", hello.readall("rb"), b"hello world")
+
+def main():
+	pass
+
+`
+
+	helloTxt := `hello world`
+
+	vfs := &fstest.MapFS{
+		"main.star": {Data: []byte(src)},
+		"hello.txt": {Data: []byte(helloTxt)},
+	}
+
+	app, err := NewAppletFromFS("test_read_file", vfs)
+	require.NoError(t, err)
+	app.RunTests(t)
 }
 
 // TODO: test Screens, especially Screens.Render()

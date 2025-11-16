@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -38,6 +39,7 @@ b1 = render.Box(
 assert(b1.width == 64, "b1.width == 64")
 assert(b1.height == 32, "b1.height == 32")
 assert(b1.color == "#000", 'b1.color == "#000"')
+assert(b1.frame_count() == 1, "b1.frame_count() == 1")
 
 b2 = render.Box(
     child = b1,
@@ -59,6 +61,7 @@ assert(t1.font == "6x13", 't1.font == "6x13"')
 assert(t1.color == "#fff", 't1.color == "#fff"')
 assert(0 < t1.size()[0], "0 < t1.size()[0]")
 assert(0 < t1.size()[1], "0 < t1.size()[1]")
+assert(t1.frame_count() == 1, "t1.frame_count() == 1")
 
 # WrappedText
 tw = render.WrappedText(
@@ -93,12 +96,14 @@ imgPng = render.Image(src = png_src)
 assert(imgPng.src == png_src, "imgPng.src == png_src")
 assert(0 < imgPng.size()[0], "0 < imgPng.size()[0]")
 assert(0 < imgPng.size()[1], "0 < imgPng.size()[1]")
+assert(1 == imgPng.frame_count(), "1 == imgPng.frame_count()")
 
 gif_src = base64.decode("R0lGODlhBQAEAPAAAAAAAAAAACH5BAF7AAAAIf8LTkVUU0NBUEUyLjADAQAAACwAAAAABQAEAAACBgRiaLmLBQAh+QQBewAAACwAAAAABQAEAAACBYRzpqhXACH5BAF7AAAALAAAAAAFAAQAAAIGDG6Qp8wFACH5BAF7AAAALAAAAAAFAAQAAAIGRIBnyMoFADs=")
 imgGif = render.Image(src = gif_src)
 assert(5 == imgGif.size()[0], "5 == imgGif.size()[0]")
 assert(4 == imgGif.size()[1], "4 == imgGif.size()[1]")
 assert(1230 == imgGif.delay, "1230 == imgGif.delay")
+assert(4 == imgGif.frame_count(), "4 == imgGif.frame_count()")
 
 # Row and Column
 r1 = render.Row(
@@ -131,10 +136,9 @@ def main():
 `
 
 func TestBigDotStar(t *testing.T) {
-	app := &Applet{}
-	err := app.Load("big.star", []byte(TestDotStar), nil)
+	app, err := NewApplet("big.star", []byte(TestDotStar))
 	assert.NoError(t, err)
-	screens, err := app.Run(map[string]string{})
+	screens, err := app.Run(context.Background())
 	assert.NoError(t, err)
 	assert.NotNil(t, screens)
 }
@@ -154,11 +158,10 @@ def main():
 `
 	)
 
-	app := &Applet{}
-	err := app.Load(filename, []byte(src), nil)
+	app, err := NewApplet(filename, []byte(src))
 	assert.NoError(t, err)
 
-	b := app.Globals["b"]
+	b := app.Globals["test_box.star"]["b"]
 	assert.IsType(t, &render_runtime.Box{}, b)
 
 	widget := b.(*render_runtime.Box).AsRenderWidget()
@@ -171,7 +174,7 @@ def main():
 	assert.IsType(t, &render.Box{}, box.Child)
 	assert.Equal(t, box.Child.(*render.Box).Height, 2)
 
-	assert.Equal(t, image.Rect(0, 0, 2, 1), widget.Paint(image.Rect(0, 0, 64, 32), 0).Bounds())
+	assert.Equal(t, image.Rect(0, 0, 2, 1), render.PaintWidget(widget, image.Rect(0, 0, 64, 32), 0).Bounds())
 }
 
 func TestText(t *testing.T) {
@@ -190,11 +193,10 @@ def main():
 `
 	)
 
-	app := &Applet{}
-	err := app.Load(filename, []byte(src), nil)
+	app, err := NewApplet(filename, []byte(src))
 	assert.NoError(t, err)
 
-	txt := app.Globals["t"]
+	txt := app.Globals["test_text.star"]["t"]
 	assert.IsType(t, &render_runtime.Text{}, txt)
 
 	widget := txt.(*render_runtime.Text).AsRenderWidget()
@@ -208,7 +210,7 @@ def main():
 	r, g, b, a := text.Color.RGBA()
 	assert.Equal(t, []uint32{eR, eG, eB, eA}, []uint32{r, g, b, a})
 
-	rendered := widget.Paint(image.Rect(0, 0, 64, 32), 0)
+	rendered := render.PaintWidget(widget, image.Rect(0, 0, 64, 32), 0)
 	assert.Greater(t, rendered.Bounds().Dx(), 0)
 	assert.Equal(t, text.Height, rendered.Bounds().Dy())
 }
@@ -216,7 +218,7 @@ def main():
 func TestImage(t *testing.T) {
 	// create a new PNG with a single blue pixel
 	bounds := image.Rect(0, 0, 64, 32)
-	blue := color.NRGBA{0, 0, 255, 255}
+	blue := color.RGBA{0, 0, 255, 255}
 
 	im := image.NewRGBA(bounds)
 	im.Set(12, 12, blue)
@@ -235,14 +237,13 @@ def main():
 
 `, base64.StdEncoding.EncodeToString(p.Bytes()))
 
-	app := &Applet{}
-	err := app.Load(filename, []byte(src), nil)
+	app, err := NewApplet(filename, []byte(src))
 	assert.NoError(t, err)
 
-	starlarkP := app.Globals["img"]
+	starlarkP := app.Globals["test_png.star"]["img"]
 	require.IsType(t, &render_runtime.Image{}, starlarkP)
 
-	actualIm := starlarkP.(*render_runtime.Image).AsRenderWidget().Paint(image.Rect(0, 0, 64, 32), 0)
+	actualIm := render.PaintWidget(starlarkP.(*render_runtime.Image).AsRenderWidget(), image.Rect(0, 0, 64, 32), 0)
 	assert.Equal(t, bounds, actualIm.Bounds())
 	assert.Equal(t, blue, actualIm.At(12, 12))
 }

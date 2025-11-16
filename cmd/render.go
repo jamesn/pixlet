@@ -1,28 +1,38 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"image"
-	"io/ioutil"
-	"log"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"tidbyt.dev/pixlet/encode"
+	"tidbyt.dev/pixlet/globals"
 	"tidbyt.dev/pixlet/runtime"
+	"tidbyt.dev/pixlet/tools"
 )
 
 var (
-	output    string
-	magnify   int
-	renderGif bool
+	output        string
+	magnify       int
+	renderGif     bool
+	maxDuration   int
+	silenceOutput bool
+	width         int
+	height        int
+	timeout       int
 )
 
 func init() {
 	RenderCmd.Flags().StringVarP(&output, "output", "o", "", "Path for rendered image")
 	RenderCmd.Flags().BoolVarP(&renderGif, "gif", "", false, "Generate GIF instead of WebP")
+	RenderCmd.Flags().BoolVarP(&silenceOutput, "silent", "", false, "Silence print statements when rendering app")
 	RenderCmd.Flags().IntVarP(
 		&magnify,
 		"magnify",
@@ -30,24 +40,72 @@ func init() {
 		1,
 		"Increase image dimension by a factor (useful for debugging)",
 	)
+	RenderCmd.Flags().IntVarP(
+		&width,
+		"width",
+		"w",
+		64,
+		"Set width",
+	)
+	RenderCmd.Flags().IntVarP(
+		&height,
+		"height",
+		"t",
+		32,
+		"Set height",
+	)
+	RenderCmd.Flags().IntVarP(
+		&maxDuration,
+		"max_duration",
+		"d",
+		15000,
+		"Maximum allowed animation duration (ms)",
+	)
+	RenderCmd.Flags().IntVarP(
+		&timeout,
+		"timeout",
+		"",
+		30000,
+		"Timeout for execution (ms)",
+	)
 }
 
 var RenderCmd = &cobra.Command{
-	Use:   "render [script] [<key>=value>]...",
-	Short: "Runs script with provided config parameters.",
+	Use:   "render [path] [<key>=value>]...",
+	Short: "Run a Pixlet app with provided config parameters",
 	Args:  cobra.MinimumNArgs(1),
-	Run:   render,
+	RunE:  render,
+	Long: `Render a Pixlet app with provided config parameters.
+
+The path argument should be the path to the Pixlet app to run. The
+app can be a single file with the .star extension, or a directory
+containing multiple Starlark files and resources.
+	`,
 }
 
-func render(cmd *cobra.Command, args []string) {
-	script := args[0]
+func render(cmd *cobra.Command, args []string) error {
+	path := args[0]
 
-	if !strings.HasSuffix(script, ".star") {
-		fmt.Printf("script file must have suffix .star: %s\n", script)
-		os.Exit(1)
+	// check if path exists, and whether it is a directory or a file
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("failed to stat %s: %w", path, err)
 	}
 
-	outPath := strings.TrimSuffix(script, ".star")
+	var fs fs.FS
+	var outPath string
+	if info.IsDir() {
+		fs = os.DirFS(path)
+		outPath = filepath.Join(path, filepath.Base(path))
+	} else {
+		if !strings.HasSuffix(path, ".star") {
+			return fmt.Errorf("script file must have suffix .star: %s", path)
+		}
+
+		fs = tools.NewSingleFileFS(path)
+		outPath = strings.TrimSuffix(path, ".star")
+	}
+
 	if renderGif {
 		outPath += ".gif"
 	} else {
@@ -57,35 +115,46 @@ func render(cmd *cobra.Command, args []string) {
 		outPath = output
 	}
 
+	globals.Width = width
+	globals.Height = height
+
 	config := map[string]string{}
 	for _, param := range args[1:] {
 		split := strings.Split(param, "=")
-		if len(split) != 2 {
-			fmt.Printf("parameters must be on form <key>=<value>, found %s\n", param)
-			os.Exit(1)
+		if len(split) < 2 {
+			return fmt.Errorf("parameters must be on form <key>=<value>, found %s", param)
 		}
-		config[split[0]] = split[1]
+		config[split[0]] = strings.Join(split[1:], "=")
 	}
 
-	src, err := ioutil.ReadFile(script)
-	if err != nil {
-		fmt.Printf("failed to read file %s: %v\n", script, err)
-		os.Exit(1)
+	// Remove the print function from the starlark thread if the silent flag is
+	// passed.
+	var opts []runtime.AppletOption
+	if silenceOutput {
+		opts = append(opts, runtime.WithPrintDisabled())
 	}
 
-	runtime.InitCache(runtime.NewInMemoryCache())
-
-	applet := runtime.Applet{}
-	err = applet.Load(script, src, nil)
-	if err != nil {
-		fmt.Printf("failed to load applet: %v\n", err)
-		os.Exit(1)
+	ctx := context.Background()
+	if timeout > 0 {
+		ctx, _ = context.WithTimeoutCause(
+			ctx,
+			time.Duration(timeout)*time.Millisecond,
+			fmt.Errorf("timeout after %dms", timeout),
+		)
 	}
 
-	roots, err := applet.Run(config)
+	cache := runtime.NewInMemoryCache()
+	runtime.InitHTTP(cache)
+	runtime.InitCache(cache)
+
+	applet, err := runtime.NewAppletFromFS(filepath.Base(path), fs, opts...)
 	if err != nil {
-		log.Printf("Error running script: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to load applet: %w", err)
+	}
+
+	roots, err := applet.RunWithConfig(ctx, config)
+	if err != nil {
+		return fmt.Errorf("error running script: %w", err)
 	}
 	screens := encode.ScreensFromRoots(roots)
 
@@ -106,8 +175,8 @@ func render(cmd *cobra.Command, args []string) {
 		)
 		for x := 0; x < in.Bounds().Dx(); x++ {
 			for y := 0; y < in.Bounds().Dy(); y++ {
-				for xx := 0; xx < 10; xx++ {
-					for yy := 0; yy < 10; yy++ {
+				for xx := 0; xx < magnify; xx++ {
+					for yy := 0; yy < magnify; yy++ {
 						out.SetRGBA(
 							x*magnify+xx,
 							y*magnify+yy,
@@ -123,24 +192,28 @@ func render(cmd *cobra.Command, args []string) {
 
 	var buf []byte
 
+	if screens.ShowFullAnimation {
+		maxDuration = 0
+	}
+
 	if renderGif {
-		buf, err = screens.EncodeGIF(filter)
+		buf, err = screens.EncodeGIF(maxDuration, filter)
 	} else {
-		buf, err = screens.EncodeWebP(filter)
+		buf, err = screens.EncodeWebP(maxDuration, filter)
 	}
 	if err != nil {
-		fmt.Printf("Error rendering: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error rendering: %w", err)
 	}
 
 	if outPath == "-" {
 		_, err = os.Stdout.Write(buf)
 	} else {
-		err = ioutil.WriteFile(outPath, buf, 0644)
+		err = os.WriteFile(outPath, buf, 0644)
 	}
 
 	if err != nil {
-		fmt.Printf("Writing %s: %s", outPath, err)
-		os.Exit(1)
+		return fmt.Errorf("writing %s: %s", outPath, err)
 	}
+
+	return nil
 }

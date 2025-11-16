@@ -4,27 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"testing/fstest"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"tidbyt.dev/pixlet/runtime"
 	"tidbyt.dev/pixlet/schema"
 )
 
 func loadApp(code string) (*runtime.Applet, error) {
-	app := &runtime.Applet{}
-	err := app.Load("test.star", []byte(code), nil)
-	if err != nil {
-		return nil, errors.WithStack(err)
+	vfs := fstest.MapFS{
+		"test.star": &fstest.MapFile{Data: []byte(code)},
+		"ding.mp3":  &fstest.MapFile{Data: []byte("ding data")},
 	}
-
-	return app, nil
+	return runtime.NewAppletFromFS("test", vfs)
 }
 
 func TestSchemaAllTypesSuccess(t *testing.T) {
 	code := `
 load("schema.star", "schema")
+load("ding.mp3", ding = "file")
 
 # these won't be called unless GetSchemaHandler() is
 def locationbasedhandler():
@@ -39,9 +39,30 @@ def typeaheadhandler():
 def oauth2handler():
     return "a-refresh-token"
 
+def build_notification():
+    return None
+
 def get_schema():
     return schema.Schema(
         version = "1",
+
+        notifications = [
+            schema.Notification(
+                id = "notificationid",
+                name = "Notification",
+                desc = "A Notification",
+                icon = "notification",
+                builder = build_notification,
+                sounds = [
+                    schema.Sound(
+                        id = "ding",
+                        title = "Ding!",
+                        file = ding,
+                    ),
+                ],
+            ),
+        ],
+
         fields = [
             schema.Location(
                 id = "locationid",
@@ -113,6 +134,14 @@ def get_schema():
             	desc = "Picture",
             	icon = "photo_camera",
             ),
+            schema.Color(
+                id = "colorid",
+                name = "Color",
+                desc = "A Color",
+                icon = "brush",
+                default = "ffaa66",
+                palette = ["#ffaa66", "#bbb"],
+            ),
         ],
     )
 
@@ -123,13 +152,31 @@ def main():
 	app, err := loadApp(code)
 	assert.NoError(t, err)
 
-	jsonSchema := app.GetSchema()
-
 	var s schema.Schema
-	json.Unmarshal([]byte(jsonSchema), &s)
+	json.Unmarshal(app.SchemaJSON, &s)
 
 	assert.Equal(t, schema.Schema{
 		Version: "1",
+
+		Notifications: []schema.Notification{
+			{
+				SchemaField: schema.SchemaField{
+					Type:        "notification",
+					ID:          "notificationid",
+					Name:        "Notification",
+					Description: "A Notification",
+					Icon:        "notification",
+					Sounds: []schema.SchemaSound{
+						{
+							ID:    "ding",
+							Title: "Ding!",
+							Path:  "ding.mp3",
+						},
+					},
+				},
+			},
+		},
+
 		Fields: []schema.SchemaField{
 			{
 				Type:        "location",
@@ -143,7 +190,7 @@ def main():
 				ID:          "locationbasedid",
 				Name:        "Locationbased",
 				Description: "A Locationbased",
-				Handler:     "locationbasedhandler",
+				Handler:     "locationbasedid$locationbasedhandler",
 				Icon:        "locationDot",
 			},
 			{
@@ -217,7 +264,7 @@ def main():
 				ID:          "typeaheadid",
 				Name:        "Typeahead",
 				Description: "A Typeahead",
-				Handler:     "typeaheadhandler",
+				Handler:     "typeaheadid$typeaheadhandler",
 				Icon:        "train",
 			},
 			{
@@ -225,7 +272,7 @@ def main():
 				ID:                    "oauth2id",
 				Name:                  "OAuth2",
 				Description:           "Authentication",
-				Handler:               "oauth2handler",
+				Handler:               "oauth2id$oauth2handler",
 				Icon:                  "train",
 				ClientID:              "oauth2_clientid",
 				AuthorizationEndpoint: "https://example.com/auth",
@@ -238,8 +285,80 @@ def main():
 				Description: "Picture",
 				Icon:        "photo_camera",
 			},
+			{
+				Type:        "color",
+				ID:          "colorid",
+				Name:        "Color",
+				Description: "A Color",
+				Icon:        "brush",
+				Default:     "#ffaa66",
+				Palette:     []string{"#ffaa66", "#bbb"},
+			},
 		},
 	}, s)
+}
+
+func TestSchemaWithNotificationInFields(t *testing.T) {
+	code := `
+load("schema.star", "schema")
+load("ding.mp3", ding = "file")
+
+def get_schema():
+    return schema.Schema(
+        version = "1",
+
+        fields = [
+            schema.Notification(
+                id = "notificationid",
+                name = "Notification",
+                desc = "A Notification",
+                icon = "notification",
+                builder = lambda: None,
+                sounds = [
+                    schema.Sound(
+                        id = "ding",
+                        title = "Ding!",
+                        file = ding,
+                    ),
+                ],
+            ),
+        ],
+    )
+
+def main():
+    return None
+`
+
+	_, err := loadApp(code)
+	assert.ErrorContains(t, err, "expected fields")
+}
+
+func TestSchemaWithFieldsInNotifications(t *testing.T) {
+	code := `
+load("schema.star", "schema")
+load("ding.mp3", ding = "file")
+
+def get_schema():
+    return schema.Schema(
+        version = "1",
+
+        notifications = [
+            schema.Color(
+                id = "colorid",
+                name = "Color",
+                desc = "A Color",
+                icon = "brush",
+                default = "ffaa66",
+            ),
+        ],
+    )
+
+def main():
+    return None
+`
+
+	_, err := loadApp(code)
+	assert.ErrorContains(t, err, "expected notifications")
 }
 
 // test with all available config types and flags.
@@ -338,6 +457,14 @@ def get_schema():
          "name": "Photo",
          "description": "Picture",
         },
+        {"type": "color",
+         "id": "colorid",
+         "icon": "brush",
+         "name": "Color",
+         "description": "A Color",
+         "default": "ffaa66",
+         "palette": ["#ffaa66", "bbb"],
+        },
     ]
 
 # these won't be called unless GetSchemaHandler() is
@@ -360,10 +487,8 @@ def main():
 	app, err := loadApp(code)
 	assert.NoError(t, err)
 
-	jsonSchema := app.GetSchema()
-
 	var s schema.Schema
-	json.Unmarshal([]byte(jsonSchema), &s)
+	json.Unmarshal(app.SchemaJSON, &s)
 
 	assert.Equal(t, schema.Schema{
 		Version: "1",
@@ -380,7 +505,7 @@ def main():
 				ID:          "locationbasedid",
 				Name:        "Locationbased",
 				Description: "A Locationbased",
-				Handler:     "locationbasedhandler",
+				Handler:     "locationbasedid$locationbasedhandler",
 				Icon:        "locationDot",
 			},
 			{
@@ -460,7 +585,7 @@ def main():
 			{
 				Type:    "generated",
 				ID:      "generatedid",
-				Handler: "generatedhandler",
+				Handler: "generatedid$generatedhandler",
 				Source:  "radioid",
 			},
 			{
@@ -468,7 +593,7 @@ def main():
 				ID:          "typeaheadid",
 				Name:        "Typeahead",
 				Description: "A Typeahead",
-				Handler:     "typeaheadhandler",
+				Handler:     "typeaheadid$typeaheadhandler",
 				Icon:        "train",
 			},
 			{
@@ -476,7 +601,7 @@ def main():
 				ID:                    "oauth2id",
 				Name:                  "OAuth2",
 				Description:           "Authentication",
-				Handler:               "oauth2handler",
+				Handler:               "oauth2id$oauth2handler",
 				Icon:                  "train",
 				ClientID:              "oauth2_clientid",
 				AuthorizationEndpoint: "https://example.com/auth",
@@ -488,6 +613,15 @@ def main():
 				Name:        "Photo",
 				Description: "Picture",
 				Icon:        "photo_camera",
+			},
+			{
+				Type:        "color",
+				ID:          "colorid",
+				Name:        "Color",
+				Description: "A Color",
+				Icon:        "brush",
+				Default:     "ffaa66",
+				Palette:     []string{"#ffaa66", "bbb"},
 			},
 		},
 	}, s)
@@ -529,7 +663,7 @@ def main():
 	assert.Error(t, err)
 
 	// They're identified by function name
-	jsonSchema, err := app.CallSchemaHandler(context.Background(), "generate_schema", "foobar")
+	jsonSchema, err := app.CallSchemaHandler(context.Background(), "generatedid$generate_schema", "foobar")
 	assert.NoError(t, err)
 
 	var s schema.Schema
@@ -585,10 +719,10 @@ def main():
 	app, err := loadApp(code)
 	assert.NoError(t, err)
 
-	_, err = app.CallSchemaHandler(context.Background(), "generate_schema", "win")
+	_, err = app.CallSchemaHandler(context.Background(), "generatedid$generate_schema", "win")
 	assert.NoError(t, err)
 
-	_, err = app.CallSchemaHandler(context.Background(), "generate_schema", "fail")
+	_, err = app.CallSchemaHandler(context.Background(), "generatedid$generate_schema", "fail")
 	assert.Error(t, err)
 }
 
@@ -674,7 +808,7 @@ def main():
 	app, err := loadApp(code)
 	assert.NoError(t, err)
 
-	stringValue, err := app.CallSchemaHandler(context.Background(), "handle_location", "fart")
+	stringValue, err := app.CallSchemaHandler(context.Background(), "locationbasedid$handle_location", "fart")
 	assert.NoError(t, err)
 	assert.Equal(t, "[{\"display\":\"\",\"text\":\"Your only option is\",\"value\":\"fart\"}]", stringValue)
 }
@@ -729,7 +863,7 @@ def main():
 	app, err := loadApp(code)
 	assert.NoError(t, err)
 
-	stringValue, err := app.CallSchemaHandler(context.Background(), "handle_typeahead", "farts")
+	stringValue, err := app.CallSchemaHandler(context.Background(), "typeaheadid$handle_typeahead", "farts")
 	assert.NoError(t, err)
 	assert.Equal(t, "[{\"display\":\"\",\"text\":\"You searched for\",\"value\":\"farts\"}]", stringValue)
 }
@@ -788,7 +922,7 @@ def main():
 	app, err := loadApp(code)
 	assert.NoError(t, err)
 
-	stringValue, err := app.CallSchemaHandler(context.Background(), "oauth2handler", "farts")
+	stringValue, err := app.CallSchemaHandler(context.Background(), "oauth2id$oauth2handler", "farts")
 	assert.NoError(t, err)
 	assert.Equal(t, "a-refresh-token", stringValue)
 }
@@ -923,7 +1057,7 @@ def get_schema():
                 icon = "football",
             ),
             schema.Generated(
-                id = "generated shouldnt need id, but still does",
+                id = "generatedid",
                 source = "with_borough",
                 handler = build_boroughs,
             ),
@@ -938,14 +1072,14 @@ def main():
 	assert.NoError(t, err)
 	assert.NotNil(t, app)
 
-	data, err := app.CallSchemaHandler(context.Background(), "build_boroughs", "false")
+	data, err := app.CallSchemaHandler(context.Background(), "generatedid$build_boroughs", "false")
 	assert.NoError(t, err)
 	var schema schema.Schema
 	assert.NoError(t, json.Unmarshal([]byte(data), &schema))
 	assert.Equal(t, "1", schema.Version)
 	assert.Equal(t, 0, len(schema.Fields))
 
-	data, err = app.CallSchemaHandler(context.Background(), "build_boroughs", "true")
+	data, err = app.CallSchemaHandler(context.Background(), "generatedid$build_boroughs", "true")
 	assert.NoError(t, err)
 	assert.NoError(t, json.Unmarshal([]byte(data), &schema))
 	assert.Equal(t, 1, len(schema.Fields))
@@ -986,7 +1120,7 @@ def get_schema():
                 icon = "football",
             ),
             schema.Generated(
-                id = "generated shouldnt need id, but still does",
+                id = "generatedid",
                 source = "select_station",
                 handler = get_station_selector,
             ),
@@ -1009,14 +1143,14 @@ def main():
 	assert.NoError(t, err)
 	assert.NotNil(t, app)
 
-	data, err := app.CallSchemaHandler(context.Background(), "get_station_selector", "true")
+	data, err := app.CallSchemaHandler(context.Background(), "generatedid$get_station_selector", "true")
 	assert.NoError(t, err)
 	var s schema.Schema
 	assert.NoError(t, json.Unmarshal([]byte(data), &s))
 	assert.Equal(t, "1", s.Version)
 	assert.Equal(t, 1, len(s.Fields))
 	assert.Equal(t, "locationbased", s.Fields[0].Type)
-	assert.Equal(t, "get_stations", s.Fields[0].Handler)
+	assert.Equal(t, "station$get_stations", s.Fields[0].Handler)
 
 	data, err = app.CallSchemaHandler(context.Background(), "get_stations", "locationdata")
 	var options []schema.SchemaOption
@@ -1025,5 +1159,59 @@ def main():
 	assert.Equal(t, 2, len(options))
 	assert.Equal(t, "L08", options[0].Value)
 	assert.Equal(t, "3rd", options[1].Value)
+}
 
+func TestSchemaWithHandlerInDifferentFile(t *testing.T) {
+	handlerFile := `
+load("schema.star", "schema")
+
+def get_stations(loc):
+    return [
+        schema.Option(display="Bedford (L)", value = "L08"),
+        schema.Option(display="3rd Ave (L)", value = "3rd"),
+    ]
+`
+
+	mainFile := `
+load("schema.star", "schema")
+load("handler.star", "get_stations")
+
+def get_schema():
+    return schema.Schema(
+        version = "1",
+        fields = [
+            schema.LocationBased(
+                id = "station",
+                name = "Station",
+                desc = "Pick a station!",
+                icon = "train",
+                handler = get_stations,
+            ),
+        ],
+        handlers = [
+            schema.Handler(
+                handler = get_stations,
+                type = schema.HandlerType.Options,
+            ),
+        ]
+    )
+    
+def main():
+    return None 
+    `
+
+	vfs := fstest.MapFS{
+		"handler.star": &fstest.MapFile{Data: []byte(handlerFile)},
+		"test.star":    &fstest.MapFile{Data: []byte(mainFile)},
+	}
+	app, err := runtime.NewAppletFromFS("test", vfs)
+	require.NoError(t, err)
+
+	data, err := app.CallSchemaHandler(context.Background(), "get_stations", "locationdata")
+	var options []schema.SchemaOption
+	assert.NoError(t, err)
+	assert.NoError(t, json.Unmarshal([]byte(data), &options))
+	assert.Equal(t, 2, len(options))
+	assert.Equal(t, "L08", options[0].Value)
+	assert.Equal(t, "3rd", options[1].Value)
 }

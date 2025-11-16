@@ -5,13 +5,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"regexp"
-	"strings"
 	"sync"
 
 	"github.com/google/tink/go/hybrid"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/tink"
-	"github.com/pkg/errors"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -37,24 +35,24 @@ type SecretEncryptionKey struct {
 }
 
 // Encrypt encrypts a value for use as a secret in an app. Provide both a value
-// and the name of the app the encrypted secret will be used in. The value will
+// and the ID of the app the encrypted secret will be used in. The value will
 // only be usable with the specified app.
-func (sek *SecretEncryptionKey) Encrypt(appName, plaintext string) (string, error) {
+func (sek *SecretEncryptionKey) Encrypt(appID, plaintext string) (string, error) {
 	r := bytes.NewReader(sek.PublicKeysetJSON)
 	kh, err := keyset.ReadWithNoSecrets(keyset.NewJSONReader(r))
 	if err != nil {
-		return "", errors.Wrap(err, "reading keyset JSON")
+		return "", fmt.Errorf("%s: %w", "reading keyset JSON", err)
 	}
 
 	enc, err := hybrid.NewHybridEncrypt(kh)
 	if err != nil {
-		return "", errors.Wrap(err, "NewHybridEncrypt")
+		return "", fmt.Errorf("%s: %w", "NewHybridEncrypt", err)
 	}
 
-	context := []byte(strings.TrimSuffix(appName, ".star"))
+	context := []byte(appID)
 	ciphertext, err := enc.Encrypt([]byte(plaintext), context)
 	if err != nil {
-		return "", errors.Wrap(err, "encrypting secret")
+		return "", fmt.Errorf("%s: %w", "encrypting secret", err)
 	}
 
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
@@ -86,26 +84,26 @@ func (sdk *SecretDecryptionKey) decrypterForApp(a *Applet) (decrypter, error) {
 	r := bytes.NewReader(sdk.EncryptedKeysetJSON)
 	kh, err := keyset.Read(keyset.NewJSONReader(r), sdk.KeyEncryptionKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "reading keyset JSON")
+		return nil, fmt.Errorf("%s: %w", "reading keyset JSON", err)
 	}
 
 	dec, err := hybrid.NewHybridDecrypt(kh)
 	if err != nil {
-		return nil, errors.Wrap(err, "NewHybridDecrypt")
+		return nil, fmt.Errorf("%s: %w", "NewHybridDecrypt", err)
 	}
 
-	context := []byte(strings.TrimSuffix(a.Filename, ".star"))
+	context := []byte(a.ID)
 
 	return func(s starlark.String) (starlark.String, error) {
 		v := regexp.MustCompile(`\s`).ReplaceAllString(s.GoString(), "")
 		ciphertext, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
-			return "", errors.Wrapf(err, "base64 decoding of secret: %s", s)
+			return "", fmt.Errorf("base64 decoding of secret: %s: %w", s, err)
 		}
 
 		cleartext, err := dec.Decrypt(ciphertext, context)
 		if err != nil {
-			return "", errors.Wrapf(err, "decrypting secret: %s", s)
+			return "", fmt.Errorf("decrypting secret %s: %w", s, err)
 		}
 
 		return starlark.String(cleartext), nil

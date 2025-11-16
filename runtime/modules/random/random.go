@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	ModuleName = "random"
+	ModuleName       = "random"
+	threadRandKey    = "tidbyt.dev/pixlet/runtime/random"
+	randomSeedWindow = 15
 )
 
 var (
@@ -19,20 +21,61 @@ var (
 	module starlark.StringDict
 )
 
+func AttachToThread(t *starlark.Thread) {
+	nowSeconds := time.Now().UnixMilli() / 1000
+
+	t.SetLocal(
+		threadRandKey,
+		rand.New(
+			// Seed RNG with a constant for brief time
+			// windows. This allows app to be "random",
+			// while still enabling Tidbyt's backend to
+			// cache the results.
+			rand.NewSource(nowSeconds/randomSeedWindow),
+		),
+	)
+}
+
 func LoadModule() (starlark.StringDict, error) {
 	once.Do(func() {
-		rand.Seed(time.Now().UnixNano())
 		module = starlark.StringDict{
 			ModuleName: &starlarkstruct.Module{
 				Name: ModuleName,
 				Members: starlark.StringDict{
 					"number": starlark.NewBuiltin("number", randomNumber),
+					"seed":   starlark.NewBuiltin("seed", randomSeed),
 				},
 			},
 		}
 	})
 
 	return module, nil
+}
+
+func randomSeed(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var starSeed starlark.Int
+
+	if err := starlark.UnpackArgs(
+		"seed",
+		args, kwargs,
+		"seed", &starSeed,
+	); err != nil {
+		return nil, fmt.Errorf("unpacking arguments for seed: %w", err)
+	}
+
+	seed, ok := starSeed.Int64()
+	if !ok {
+		return nil, fmt.Errorf("casting seed to int64")
+	}
+
+	rng, ok := thread.Local(threadRandKey).(*rand.Rand)
+	if !ok || rng == nil {
+		return nil, fmt.Errorf("RNG not set (very bad)")
+	}
+
+	rng.Seed(seed)
+
+	return starlark.None, nil
 }
 
 func randomNumber(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -67,10 +110,13 @@ func randomNumber(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tu
 	}
 
 	if max < min {
-		return nil, fmt.Errorf("max is less then min")
+		return nil, fmt.Errorf("max is less than min")
 	}
 
-	number := rand.Int63n(max-min+1) + min
+	rng, ok := thread.Local(threadRandKey).(*rand.Rand)
+	if !ok || rng == nil {
+		return nil, fmt.Errorf("RNG not set (very bad!)")
+	}
 
-	return starlark.MakeInt64(number), nil
+	return starlark.MakeInt64(rng.Int63n(max-min+1) + min), nil
 }

@@ -14,6 +14,11 @@ A quick note about colors.  When specifying colors, use a CSS-like
 hexdecimal color specification.  Pixlet supports "#rgb", "#rrggbb",
 "#rgba", and "#rrggbbaa" color specifications.
 
+For animated widgets like Marquee, you can also call `frame_count()`
+to work out how many frames are required to display the whole
+animation. You can also call `size()` on dynamically-sized widgets
+like Text to get the width and height.
+
 
 ## Animation
 Animations turns a list of children into an animation, where each
@@ -156,7 +161,7 @@ render.Column(
 
 ## Image
 Image renders the binary image data passed via `src`. Supported
-formats include PNG, JPEG and GIF.
+formats include PNG, JPEG, GIF, and SVG.
 
 If `width` or `height` are set, the image will be scaled
 accordingly, with nearest neighbor interpolation. Otherwise the
@@ -169,7 +174,7 @@ the `delay` attribute.
 #### Attributes
 | Name | Type | Description | Required |
 | --- | --- | --- | --- |
-| `src` | `str` | Binary image data | **Y** |
+| `src` | `str` | Binary image data or SVG text | **Y** |
 | `width` | `int` | Scale image to this width | N |
 | `height` | `int` | Scale image to this height | N |
 | `delay` | `int` | (Read-only) Frame delay in ms, for animated GIFs | N |
@@ -207,7 +212,8 @@ one of the following `align` values:
 | `offset_start` | `int` | Position of child at beginning of animation | N |
 | `offset_end` | `int` | Position of child at end of animation | N |
 | `scroll_direction` | `str` | Direction to scroll, 'vertical' or 'horizontal', default is horizontal | N |
-| `align` | `str` | Alignment of child that fits fully, default is 'start' | N |
+| `align` | `str` | Alignment when contents fit on screen, 'start', 'center' or 'end', default is start | N |
+| `delay` | `int` | Delay the scroll of the animation by a certain number of frames, default is 0 | N |
 
 #### Example
 ```
@@ -239,6 +245,29 @@ accordingly.
 
 
 
+## PieChart
+PieChart draws a circular pie chart of size `diameter`. It takes two
+arguments for the data: parallel lists `colors` and `weights` representing
+the shading and relative sizes of each data entry.
+
+#### Attributes
+| Name | Type | Description | Required |
+| --- | --- | --- | --- |
+| `colors` | `[color]` | List of color hex codes | **Y** |
+| `weights` | `[float]` | List of numbers corresponding to the relative size of each color | **Y** |
+| `diameter` | `int` | Diameter of the circle | **Y** |
+
+#### Example
+```
+render.PieChart(
+     colors = [ "#fff", "#0f0", "#00f" ],
+     weights  = [ 180, 135, 45 ],
+     diameter = 30,
+)
+```
+![](img/widget_PieChart_0.gif)
+
+
 ## Plot
 Plot is a widget that draws a data series.
 
@@ -253,6 +282,7 @@ Plot is a widget that draws a data series.
 | `x_lim` | `(float, float)` | Limit X-axis to a range | N |
 | `y_lim` | `(float, float)` | Limit Y-axis to a range | N |
 | `fill` | `bool` | Paint surface between line and X-axis | N |
+| `chart_type` | `str` | Specifies the type of chart to render, "scatter" or "line", default is "line" | N |
 | `fill_color` | `color` | Fill color for Y-values above 0 | N |
 | `fill_color_inverted` | `color` | Fill color for Y-values below 0 | N |
 
@@ -304,6 +334,7 @@ displaying stale data in the event of e.g. connectivity issues.
 | `child` | `Widget` | Widget to render | **Y** |
 | `delay` | `int` | Frame delay in milliseconds | N |
 | `max_age` | `int` | Expiration time in seconds | N |
+| `show_full_animation` | `bool` | Request animation is shown in full, regardless of app cycle speed | N |
 
 
 
@@ -455,6 +486,7 @@ Alignment of the text is controlled by passing one of the following `align` valu
 - `"left"`: align text to the left
 - `"center"`: align text in the center
 - `"right"`: align text to the right
+
 #### Attributes
 | Name | Type | Description | Required |
 | --- | --- | --- | --- |

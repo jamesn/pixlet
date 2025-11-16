@@ -3,18 +3,18 @@ name: pixlet
 on:
   pull_request:
     branches:
-      - '*'
+      - "*"
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.16.12'
+          go-version: "1.22.2"
 
       - name: Install buildifier
         run: make install-buildifier
@@ -26,40 +26,90 @@ jobs:
     name: Build and Test
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-22.04, macos-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.16.12'
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: '16'
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.2"
 
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "16"
 
-    - name: Install Linux dependencies
-      if: matrix.os == 'ubuntu-latest'
-      run: sudo apt-get install -y libwebp-dev
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        if: matrix.os == 'windows-latest'
+        with:
+          msystem: mingw64
+          update: true
+          install: >-
+            make
+            curl
+            mingw-w64-x86_64-go
+            mingw-w64-x86_64-toolchain
 
-    - name: Install macOS dependencies
-      if: matrix.os == 'macos-latest'
-      run: brew install webp
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: sudo apt-get install -y libwebp-dev
 
-    - name: Install frontend dependencies
-      run: npm install
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install webp
 
-    - name: Build frontend
-      run: npm run build
+      - name: Install Windows dependencies
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          curl -LO https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-libwebp-1.2.4-4-any.pkg.tar.zst
+          pacman -U --noconfirm mingw-w64-x86_64-libwebp-1.2.4-4-any.pkg.tar.zst
 
-    - name: Build
-      run: make build
+      - name: Install frontend dependencies
+        run: npm install
 
-    - name: Test
-      run: make test
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Linux
+        run: make build
+        if: matrix.os == 'ubuntu-22.04'
+
+      - name: Build macOS
+        run: make build
+        if: matrix.os == 'macos-latest'
+        env:
+          LIBRARY_PATH: "/opt/homebrew/lib"
+          CGO_CPPFLAGS: "-I/opt/homebrew/include"
+
+      - name: Build Windows
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          make build
+        if: matrix.os == 'windows-latest'
+
+      - name: Test Linux
+        run: make test
+        if: matrix.os == 'ubuntu-22.04'
+
+      - name: Test macOS
+        run: make test
+        if:  matrix.os == 'macos-latest'
+        env:
+          LIBRARY_PATH: "/opt/homebrew/lib"
+          CGO_CPPFLAGS: "-I/opt/homebrew/include"
+
+      - name: Test Windows
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          make test
+        if: matrix.os == 'windows-latest'

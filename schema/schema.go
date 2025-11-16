@@ -26,26 +26,30 @@ const (
 // Schema holds a configuration object for an applet. It holds a list of fields
 // that are exported from an applet.
 type Schema struct {
-	Version string        `json:"version" validate:"required"`
-	Fields  []SchemaField `json:"schema" validate:"dive"`
+	Version       string         `json:"version" validate:"required"`
+	Fields        []SchemaField  `json:"schema" validate:"dive"`
+	Notifications []Notification `json:"notifications,omitempty" validate:"dive"`
 
 	Handlers map[string]SchemaHandler `json:"-"`
 }
 
 // SchemaField represents an item in the config used to confgure an applet.
 type SchemaField struct {
-	Type        string            `json:"type" validate:"required,oneof=datetime dropdown generated location locationbased onoff radio text typeahead oauth2 oauth1 png"`
-	ID          string            `json:"id" validate:"required"`
+	Type        string            `json:"type" validate:"required,oneof=color datetime dropdown generated location locationbased onoff radio text typeahead oauth2 oauth1 png notification"`
+	ID          string            `json:"id" validate:"required,excludesall=$"`
 	Name        string            `json:"name,omitempty" validate:"required_for=datetime dropdown location locationbased onoff radio text typeahead png"`
 	Description string            `json:"description,omitempty"`
 	Icon        string            `json:"icon,omitempty" validate:"forbidden_for=generated"`
-	Visibility  *SchemaVisibility `json:"visibility,omitempty" validate:"omitempty,dive"`
+	Visibility  *SchemaVisibility `json:"visibility,omitempty" validate:"omitempty"`
 
 	Default string         `json:"default,omitempty" validate:"required_for=dropdown onoff radio"`
 	Options []SchemaOption `json:"options,omitempty" validate:"required_for=dropdown radio,dive"`
+	Palette []string       `json:"palette,omitempty"`
+	Sounds  []SchemaSound  `json:"sounds,omitempty" validate:"required_for=notification,dive"`
 
-	Source  string `json:"source,omitempty" validate:"required_for=generated"`
-	Handler string `json:"handler,omitempty" validate:"required_for=generated locationbased typeahead oauth2"`
+	Source          string             `json:"source,omitempty" validate:"required_for=generated"`
+	Handler         string             `json:"handler,omitempty" validate:"required_for=generated locationbased typeahead oauth2"`
+	StarlarkHandler *starlark.Function `json:"-"`
 
 	ClientID              string   `json:"client_id,omitempty" validate:"required_for=oauth2"`
 	AuthorizationEndpoint string   `json:"authorization_endpoint,omitempty" validate:"required_for=oauth2"`
@@ -58,6 +62,13 @@ type SchemaOption struct {
 	Display string `json:"display"`
 	Text    string `json:"text" validate:"required"` // The same as display, for legacy reasons.
 	Value   string `json:"value" validate:"required"`
+}
+
+// SchemaSound represents a sound that can be played by the applet.
+type SchemaSound struct {
+	ID    string `json:"id" validate:"required"`
+	Title string `json:"title" validate:"required"`
+	Path  string `json:"path" validate:"required"`
 }
 
 // SchemaVisibility enables conditional fields inside of the mobile app. For
@@ -95,6 +106,9 @@ func (s Schema) MarshalJSON() ([]byte, error) {
 	if a.Fields == nil {
 		a.Fields = make([]SchemaField, 0)
 	}
+	if a.Notifications == nil {
+		a.Notifications = make([]Notification, 0)
+	}
 
 	js, err := json.Marshal(a)
 
@@ -104,7 +118,8 @@ func (s Schema) MarshalJSON() ([]byte, error) {
 // FromStarlark creates a new Schema from a Starlark schema object.
 func FromStarlark(
 	val starlark.Value,
-	globals starlark.StringDict) (*Schema, error) {
+	globals starlark.StringDict,
+) (*Schema, error) {
 	var schema *Schema
 
 	starlarkSchema, ok := val.(*StarlarkSchema)
@@ -117,6 +132,8 @@ func FromStarlark(
 			}
 		}
 	} else {
+		// this is a legacy path, where the schema was just a dict
+		// instead of a StarlarkSchema object
 		schemaTree, err := unmarshalStarlark(val)
 		if err != nil {
 			return nil, err
@@ -141,23 +158,32 @@ func FromStarlark(
 		return nil, err
 	}
 
-	for i, schemaField := range schema.Fields {
-		if schemaField.Handler != "" {
-			handlerValue, found := globals[schemaField.Handler]
-			if !found {
+	for i := range schema.Fields {
+		schemaField := &schema.Fields[i]
+
+		var handlerFun *starlark.Function
+		if schemaField.StarlarkHandler != nil {
+			handlerFun = schemaField.StarlarkHandler
+		} else if schemaField.Handler != "" {
+			// legacy schema, where the handler was a string instead of
+			// a function reference
+			handlerValue, ok := globals[schemaField.Handler]
+			if !ok {
 				return nil, fmt.Errorf(
 					"field %d references non-existent handler \"%s\"",
 					i,
 					schemaField.Handler)
 			}
 
-			handlerFun, ok := handlerValue.(*starlark.Function)
+			handlerFun, ok = handlerValue.(*starlark.Function)
 			if !ok {
 				return nil, fmt.Errorf(
 					"field %d references \"%s\" which is not a function",
 					i, schemaField.Handler)
 			}
+		}
 
+		if handlerFun != nil {
 			var handlerType HandlerReturnType
 			switch schemaField.Type {
 			case "locationbased":
@@ -176,6 +202,8 @@ func FromStarlark(
 					i, schemaField.Type)
 			}
 
+			// prepend the field ID to the handler name to avoid conflicts
+			schemaField.Handler = fmt.Sprintf("%s$%s", schemaField.ID, schemaField.Handler)
 			schema.Handlers[schemaField.Handler] = SchemaHandler{Function: handlerFun, ReturnType: handlerType}
 		}
 	}
@@ -185,8 +213,8 @@ func FromStarlark(
 
 // Encodes a list of schema options into validated json.
 func EncodeOptions(
-	starlarkOptions starlark.Value) (string, error) {
-
+	starlarkOptions starlark.Value,
+) (string, error) {
 	optionsTree, err := unmarshalStarlark(starlarkOptions)
 	if err != nil {
 		return "", err
@@ -316,7 +344,6 @@ func buildOptions(options interface{}) ([]SchemaOption, error) {
 
 // Validates a Schema object.
 func validateSchema(schema *Schema) error {
-
 	// This custom validator function implements
 	// "required_for", which makes the tagged field required
 	// whenever SchemaField.Type matches one of the parameters.

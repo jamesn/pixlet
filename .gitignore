@@ -2,15 +2,22 @@
 .DS_Store
 
 # Rendered Apps
-examples/*.webp
-examples/*.gif
+examples/**/*.webp
+examples/**/*.gif
 
 # Pixlet Binary
 pixlet
+pixlet.exe
+pixlet.wasm
 
 # Releases
 build/
 out/
+dist/
 
 # Dependency directories
 node_modules
+src/go
+
+# build files from monorepo
+BUILD.bazel

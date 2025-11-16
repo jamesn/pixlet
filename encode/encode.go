@@ -1,18 +1,10 @@
 package encode
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"image"
-	"image/color"
-	"image/draw"
-	"image/gif"
-	"time"
 
-	"github.com/ericpauley/go-quantize/quantize"
-	"github.com/pkg/errors"
-	"github.com/tidbyt/go-libwebp/webp"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"tidbyt.dev/pixlet/render"
@@ -26,10 +18,11 @@ const (
 )
 
 type Screens struct {
-	roots  []render.Root
-	images []image.Image
-	delay  int32
-	MaxAge int32
+	roots             []render.Root
+	images            []image.Image
+	delay             int32
+	MaxAge            int32
+	ShowFullAnimation bool
 }
 
 type ImageFilter func(image.Image) (image.Image, error)
@@ -47,6 +40,7 @@ func ScreensFromRoots(roots []render.Root) *Screens {
 		if roots[0].MaxAge > 0 {
 			screens.MaxAge = roots[0].MaxAge
 		}
+		screens.ShowFullAnimation = roots[0].ShowFullAnimation
 	}
 	return &screens
 }
@@ -58,6 +52,11 @@ func ScreensFromImages(images ...image.Image) *Screens {
 		MaxAge: DefaultMaxAgeSeconds,
 	}
 	return &screens
+}
+
+// Empty returns true if there are no render roots or images in this screen.
+func (s *Screens) Empty() bool {
+	return len(s.roots) == 0 && len(s.images) == 0
 }
 
 // Hash returns a hash of the render roots for this screen. This can be used for
@@ -83,87 +82,11 @@ func (s *Screens) Hash() ([]byte, error) {
 
 	j, err := msgpack.Marshal(hashable)
 	if err != nil {
-		return nil, errors.Wrap(err, "marshaling render tree to JSON")
+		return nil, fmt.Errorf("marshaling render tree to JSON: %w", err)
 	}
 
 	h := sha256.Sum256(j)
 	return h[:], nil
-}
-
-// Renders a screen to WebP. Optionally pass filters for
-// postprocessing each individual frame.
-func (s *Screens) EncodeWebP(filters ...ImageFilter) ([]byte, error) {
-	images, err := s.render(filters...)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(images) == 0 {
-		return []byte{}, nil
-	}
-
-	bounds := images[0].Bounds()
-	anim, err := webp.NewAnimationEncoder(
-		bounds.Dx(),
-		bounds.Dy(),
-		WebPKMin,
-		WebPKMax,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "initializing encoder")
-	}
-	defer anim.Close()
-
-	frameDuration := time.Duration(s.delay) * time.Millisecond
-	for _, im := range images {
-		if err := anim.AddFrame(im, frameDuration); err != nil {
-			return nil, errors.Wrap(err, "adding frame")
-		}
-	}
-
-	buf, err := anim.Assemble()
-	if err != nil {
-		return nil, errors.Wrap(err, "encoding animation")
-	}
-
-	return buf, nil
-}
-
-// Renders a screen to GIF. Optionally pass filters for postprocessing
-// each individual frame.
-func (s *Screens) EncodeGIF(filters ...ImageFilter) ([]byte, error) {
-	images, err := s.render(filters...)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(images) == 0 {
-		return []byte{}, nil
-	}
-
-	g := &gif.GIF{}
-
-	for imIdx, im := range images {
-		imRGBA, ok := im.(*image.RGBA)
-		if !ok {
-			return nil, fmt.Errorf("image %d is %T, require RGBA", imIdx, im)
-		}
-
-		palette := quantize.MedianCutQuantizer{}.Quantize(make([]color.Color, 0, 256), im)
-		imPaletted := image.NewPaletted(imRGBA.Bounds(), palette)
-		draw.Draw(imPaletted, imRGBA.Bounds(), imRGBA, image.Point{0, 0}, draw.Src)
-
-		g.Image = append(g.Image, imPaletted)
-		g.Delay = append(g.Delay, int(s.delay/10)) // in 100ths of a second
-	}
-
-	buf := &bytes.Buffer{}
-	err = gif.EncodeAll(buf, g)
-	if err != nil {
-		return nil, errors.Wrap(err, "encoding")
-	}
-
-	return buf.Bytes(), nil
 }
 
 func (s *Screens) render(filters ...ImageFilter) ([]image.Image, error) {

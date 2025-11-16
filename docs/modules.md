@@ -28,7 +28,9 @@ individual modules, please refer to the Starlib documentation.
 
 | Module | Description |
 | --- | --- |
-| [`compress/gzip.star`](https://github.com/qri-io/starlib/blob/master/compress/gzip/gzip) | gzip decompressing |
+| [`bsoup.star`](https://github.com/qri-io/starlib/blob/master/bsoup) | Beautiful Soup-like functions for HTML |
+| [`compress/gzip.star`](https://github.com/qri-io/starlib/blob/master/compress/gzip) | gzip decompressing |
+| [`compress/zipfile.star`](https://github.com/qri-io/starlib/blob/master/zipfile) | zip decompressing |
 | [`encoding/base64.star`](https://github.com/qri-io/starlib/tree/master/encoding/base64) | Base 64 encoding and decoding |
 | [`encoding/csv.star`](https://github.com/qri-io/starlib/tree/master/encoding/csv) | CSV decoding |
 | [`encoding/json.star`](https://github.com/qri-io/starlib/tree/master/encoding/json) | JSON encoding and decoding |
@@ -63,6 +65,27 @@ def get_counter():
     return i + 1
 ...
 ```
+
+## Pixlet module: HMAC
+
+This module implements the HMAC algorithm as described by [RFC 2104](https://datatracker.ietf.org/doc/html/rfc2104.html).
+
+| Function | Description |
+| --- | --- |
+| `md5(key, string)` | Returns md5 hash of a string using the provided key |
+| `sha1(key, string)` | Returns sha1 hash of a string using the provided key |
+| `sha256(key, string)` | Returns sha256 hash of a string using the provided key |
+
+Example:
+
+```starlark
+load("hmac.star", "hmac")
+
+sum = hmac.md5("secret", "hello world!")
+print(sum)
+# Output: 0a0461e10e89506d7c31a145663bed93
+```
+
 ## Pixlet module: Humanize
 
 The `humanize` module has formatters for units to human friendly sizes. 
@@ -72,6 +95,7 @@ The `humanize` module has formatters for units to human friendly sizes.
 | `time(date)` | Lets you take a `time.Time` and spit it out in relative terms. For example, `12 seconds ago` or `3 days from now`. |
 | `relative_time(date1, date2, label1?, label2?)` | Formats a time into a relative string. It takes two `time.Time`s and two labels. In addition to the generic time delta string (e.g. 5 minutes), the labels are used applied so that the label corresponding to the smaller time is applied. |
 | `time_format(format, date?)` | Takes a [Java SimpleDateFormat](https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html) and returns a [Go layout string](https://programming.guide/go/format-parse-string-time-date-example.html). If you pass it a `date`, it will apply the format using the converted layout string and return the formatted date. |
+| `day_of_week(date)` | Returns an integer corresponding to the day of the week, where 0 = Sunday, 6 = Saturday. |
 | `bytes(size, iec?)` | Lets you take numbers like `82854982` and convert them to useful strings like, `83 MB`. You can optionally format using IEC sizes like, `83 MiB`. |
 | `parse_bytes(formatted_size)` | Lets you take strings like `83 MB` and convert them to the number of bytes it represents like, `82854982`. |
 | `comma(num)` | Lets you take numbers like `123456` or `123456.78` and convert them to comma-separated numbers like `123,456` or `123,456.78`. |
@@ -83,13 +107,12 @@ The `humanize` module has formatters for units to human friendly sizes.
 | `plural_word(quantity, singular, plural?)` | Builds the plural form of an English word. The simple English rules of regular pluralization will be used if the plural form is an empty string (i.e. not explicitly given). |
 | `word_series(words, conjunction)` | Converts a list of words into a word series in English. It returns a string containing all the given words separated by commas, the coordinating conjunction, and a serial comma, as appropriate. |
 | `oxford_word_series(words, conjunction)` | Converts a list of words into a word series in English, using an [Oxford comma](https://en.wikipedia.org/wiki/Serial_comma). It returns a string containing all the given words separated by commas, the coordinating conjunction, and a serial comma, as appropriate. |
-
 | `url_encode(str)` | Escapes the string so it can be safely placed inside a URL query. |
 | `url_decode(str)` | The inverse of `url_encode`. Converts each 3-byte encoded substring of the form "%AB" into the hex-decoded byte 0xAB |
 
 Example:
 
-See [examples/humanize.star](../examples/humanize.star) for an example.
+See [examples/humanize/humanize.star](../examples/humanize/humanize.star) for an example.
 
 ## Pixlet module: XPath
 
@@ -106,6 +129,10 @@ On an xpath object, the following methods are available:
 | --- | --- |
 | `query(path)` | Retrieves text of the first tag matching the path |
 | `query_all(path)` | Retrieves text of all tags matching the path |
+| `query_node(path)` | Retrieves the first tag matching the path as an xpath object |
+| `query_all_nodes(path)` | Retrieves all tags matching the path as xpath objects |
+
+The `query_node` and `query_all_nodes` methods allow you to recursively query the XML document, which can be useful if you need to query several tags that are nested underneath some parent tag.
 
 Example:
 
@@ -122,6 +149,11 @@ doc = """
 def get_bars():
     x = xpath.loads(doc)
     return x.query_all("/foo/bar")
+
+def also_get_bars():
+    x = xpath.loads(doc)
+    foo = x.query_node("/foo")
+    return foo.query_all("/bar")
 ...
 ```
 
@@ -146,7 +178,7 @@ The schema module provides configuration options for your app. See the [schema d
 
 Example:
 
-See [examples/schema_hello_world.star](../examples/schema_hello_world.star) for an example.
+See [examples/schema_hello_world/schema_hello_world.star](../examples/schema_hello_world/schema_hello_world.star) for an example.
 
 ## Pixlet module: Secret
 
@@ -154,7 +186,7 @@ The secret module can decrypt values that were encrypted with `pixlet encrypt`.
 
 | Function | Description |
 | --- | --- |
-| `decrypt(value)` | Decrypts and returns the value when running in Tidbyt cloud. Returns `None` when running locally. Decryption will fail if the name of the app doesn't match the name that was passed to `pixlet encrypt`.  |
+| `decrypt(value)` | Decrypts and returns the value when running in Tidbyt cloud. Returns `None` when running locally. Decryption will fail if the ID of the app doesn't match the ID that was passed to `pixlet encrypt`.  |
 
 Example:
 ```starlark
@@ -174,18 +206,21 @@ The `sunrise` module calculates sunrise and sunset times for a given set of GPS 
 | --- | --- |
 | `sunrise(lat, lng, date)` | Calculates the sunrise time for a given location and date. |
 | `sunset(lat, lng, date)` | Calculates the sunset time for a given location and date. |
+| `elevation(lat, lng, time)` | Calculates the elevation of the sun above the horizon for a given location and point in time. |
+| `elevation_time(lat, lng, elev, date)` | Calculates the two times at which the sun was at the given elevation above the horizon for a given location and date. Returns None if the sun never reached the given elevation. |
 
 Example:
 
-See [examples/sunrise.star](../examples/sunrise.star) for an example.
+See [examples/sunrise/sunrise.star](../examples/sunrise/sunrise.star) for an example.
 
 ## Pixlet module: Random
 
-The `random` module provides a pseudorandom number generator for pixlet.
+The `random` module provides a pseudorandom number generator for pixlet. The generator is automatically seeded on each execution. The seed itself changes every 15 seconds, making apps deterministic over that same time window. This behavior enables more effective caching of execution results on Tidbyt servers. Developer can reseed via `random.seed` if needed.
 
 | Function | Description |
 | --- | --- |
-| `number(min, max)` | Returns a random number between the min and max. The min has to be 0 or greater. The min has to be less then the max. |
+| `seed(s)` | Seeds the generator.|
+| `number(min, max)` | Returns a random number between the min and max. The min has to be 0 or greater. The min has to be less than the max. |
 
 Example:
 ```starlark

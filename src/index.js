@@ -8,7 +8,6 @@ import OAuth2Handler from './features/schema/fields/oauth2/OAuth2Handler';
 import store from './store';
 import DevToolsTheme from './features/theme/DevToolsTheme';
 
-
 const App = () => {
     return (
         <Provider store={store}>

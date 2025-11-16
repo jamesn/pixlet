@@ -9,7 +9,7 @@ export default class Watcher {
     }
 
     connect() {
-        const proto =  document.location.protocol === "https:" ? "wss:" : "ws:";
+        const proto = document.location.protocol === "https:" ? "wss:" : "ws:";
         this.conn = new WebSocket(proto + '//' + document.location.host + '/api/v1/ws');
         this.conn.open = this.open.bind(this);
         this.conn.onmessage = this.process.bind(this);
@@ -27,9 +27,10 @@ export default class Watcher {
         const data = JSON.parse(e.data);
 
         switch (data.type) {
-            case 'webp':
+            case 'img':
                 store.dispatch(update({
-                    webp: data.message,
+                    img: data.message,
+                    img_type: data.img_type
                 }));
                 store.dispatch(clearErrors());
                 break;

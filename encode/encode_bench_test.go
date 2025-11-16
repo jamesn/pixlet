@@ -1,6 +1,7 @@
 package encode
 
 import (
+	"context"
 	"testing"
 
 	"tidbyt.dev/pixlet/runtime"
@@ -71,20 +72,18 @@ def main(config):
 `
 
 func BenchmarkRunAndRender(b *testing.B) {
-	app := &runtime.Applet{}
-	err := app.Load("benchmark.star", []byte(BenchmarkDotStar), nil)
+	app, err := runtime.NewApplet("benchmark.star", []byte(BenchmarkDotStar))
 	if err != nil {
 		b.Error(err)
 	}
 
-	config := map[string]string{}
 	for i := 0; i < b.N; i++ {
-		roots, err := app.Run(config)
+		roots, err := app.Run(context.Background())
 		if err != nil {
 			b.Error(err)
 		}
 
-		webp, err := ScreensFromRoots(roots).EncodeWebP()
+		webp, err := ScreensFromRoots(roots).EncodeWebP(15000)
 		if err != nil {
 			b.Error(err)
 		}

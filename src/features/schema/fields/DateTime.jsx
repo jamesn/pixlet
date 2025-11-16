@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
-import AdapterDateFns from '@mui/lab/AdapterDateFns';
-import LocalizationProvider from '@mui/lab/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import TextField from '@mui/material/TextField';
-import DateTimePicker from '@mui/lab/DateTimePicker';
 
 import { set, remove } from '../../config/configSlice'
 
@@ -18,7 +18,7 @@ export default function DateTime({ field }) {
         if (field.id in config) {
             setDateTime(new Date(config[field.id].value));
         }
-    }, []);
+    }, [config]);
 
     const onChange = (timestamp) => {
         if (!timestamp) {
@@ -35,7 +35,7 @@ export default function DateTime({ field }) {
     }
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DateTimePicker
                 renderInput={(props) => <TextField {...props} />}
                 label={field.name}
