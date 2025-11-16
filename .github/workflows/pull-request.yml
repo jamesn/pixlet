@@ -69,8 +69,8 @@ jobs:
         shell: msys2 {0}
         run: |
           set MSYSTEM=MINGW64
-          curl -LO https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-libwebp-1.2.4-4-any.pkg.tar.zst
-          pacman -U --noconfirm mingw-w64-x86_64-libwebp-1.2.4-4-any.pkg.tar.zst
+          pacman -Sy --noconfirm
+          pacman -S --noconfirm mingw-w64-x86_64-libwebp
 
       - name: Install frontend dependencies
         run: npm install
@@ -102,7 +102,7 @@ jobs:
 
       - name: Test macOS
         run: make test
-        if:  matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest'
         env:
           LIBRARY_PATH: "/opt/homebrew/lib"
           CGO_CPPFLAGS: "-I/opt/homebrew/include"

@@ -71,8 +71,8 @@ jobs:
         shell: msys2 {0}
         run: |
           set MSYSTEM=MINGW64
-          curl -LO https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-libwebp-1.2.4-4-any.pkg.tar.zst
-          pacman -U --noconfirm mingw-w64-x86_64-libwebp-1.2.4-4-any.pkg.tar.zst
+          pacman -Sy --noconfirm
+          pacman -S --noconfirm mingw-w64-x86_64-libwebp
 
       - name: Install frontend dependencies
         run: npm install
@@ -118,7 +118,7 @@ jobs:
 
       - name: Set pixlet version
         id: vars
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+        run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
         if: matrix.os == 'ubuntu-22.04' || matrix.os == 'macos-latest'
 
       - name: Set Windows pixlet version
@@ -126,7 +126,7 @@ jobs:
         shell: msys2 {0}
         run: |
           set MSYSTEM=MINGW64
-          echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+          echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
         if: matrix.os == 'windows-latest'
 
       - name: Build Release Linux
