@@ -97,6 +97,8 @@ jobs:
           set MSYSTEM=MINGW64
           make build
         if: matrix.os == 'windows-latest'
+        env:
+          CGO_LDFLAGS: "-lsharpyuv"
 
       - name: Test Linux
         run: make test
@@ -115,6 +117,8 @@ jobs:
           set MSYSTEM=MINGW64
           make test
         if: matrix.os == 'windows-latest'
+        env:
+          CGO_LDFLAGS: "-lsharpyuv"
 
       - name: Set pixlet version
         id: vars
@@ -151,6 +155,7 @@ jobs:
           make release-windows
         env:
           PIXLET_VERSION: ${{ steps.windowsvars.outputs.tag }}
+          CGO_LDFLAGS: "-lsharpyuv"
 
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v3
