@@ -196,5 +196,8 @@ func TestDetermineTTLNoHeaders(t *testing.T) {
 	}
 
 	ttl := DetermineTTL(req, res)
-	assert.Equal(t, MinRequestTTL, ttl)
+	// DetermineTTL applies jitter, so the result should be MinRequestTTL +/- 10%
+	// MinRequestTTL is 5 seconds, so jitter range is -0.5 to +0.5 seconds
+	assert.GreaterOrEqual(t, int(ttl.Seconds()), 4)
+	assert.LessOrEqual(t, int(ttl.Seconds()), 6)
 }
