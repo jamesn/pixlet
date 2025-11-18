@@ -2,6 +2,9 @@
 
 set -e
 
+rm -f /etc/apt/apt-mirrors.txt
+rm -f /etc/apt/sources.list.d/ubuntu-advantage-mirror.list
+
 dpkg --add-architecture arm64
 cat <<EOT > /etc/apt/sources.list
 deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted
