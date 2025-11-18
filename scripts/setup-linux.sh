@@ -3,6 +3,29 @@
 set -e
 
 dpkg --add-architecture arm64
+cat <<EOT > /etc/apt/sources.list
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble universe
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates universe
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble multiverse
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates multiverse
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
+deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security main restricted
+deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security universe
+deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security multiverse
+
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble universe
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates universe
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security universe
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security multiverse
+EOT
 
 apt-get update 
 apt-get install -y \
