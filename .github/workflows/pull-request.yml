@@ -95,6 +95,8 @@ jobs:
           set MSYSTEM=MINGW64
           make build
         if: matrix.os == 'windows-latest'
+        env:
+          CGO_LDFLAGS: "-lsharpyuv"
 
       - name: Test Linux
         run: make test

@@ -172,17 +172,17 @@ func TestDetermineTTLJitter(t *testing.T) {
 	// With seed 50 and 60 seconds base: jitter = 6, so range is -6 to +6
 	// We need to determine what Int63n(13) returns with seed 50
 	testRand := rand.New(rand.NewSource(50))
-	jitter := int64(float64(60) * 0.1) // = 6
+	jitter := int64(float64(60) * 0.1)                   // = 6
 	randomJitter := testRand.Int63n(2*jitter+1) - jitter // Int63n(13) - 6
 	expectedTTL := 60 + randomJitter
-	
+
 	// Since we can't control the global rand, let's just verify the TTL is within the jitter range
 	ttl := DetermineTTL(req, res)
 	// TTL should be 60 +/- 6 seconds (10% jitter)
 	assert.GreaterOrEqual(t, int(ttl.Seconds()), 54)
 	assert.LessOrEqual(t, int(ttl.Seconds()), 66)
-	
-	_ = oldRand // Suppress unused variable warning
+
+	_ = oldRand     // Suppress unused variable warning
 	_ = expectedTTL // Suppress unused variable warning
 }
 
