@@ -3,10 +3,10 @@
 set -e
 
 rm -f /etc/apt/apt-mirrors.txt
-rm -f /etc/apt/sources.list.d/ubuntu-advantage-mirror.list
+rm -f /etc/apt/sources.list.d/*
 
 dpkg --add-architecture arm64
-cat <<EOT > /etc/apt/sources.list
+cat <<EOT > /etc/apt/sources.list.d/ubuntu.sources
 deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted
 deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted
 deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble universe
