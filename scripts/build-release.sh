@@ -28,7 +28,7 @@ do
 		CGO_ENABLED=1 GOOS=$RELEASE_PLATFORM GOARCH=$RELEASE_ARCH CGO_LDFLAGS="-lsharpyuv" go build -ldflags="-s -extldflags=-static -X 'tidbyt.dev/pixlet/cmd.Version=${PIXLET_VERSION}'" -o build/${RELEASE_PLATFORM}_${RELEASE_ARCH}/pixlet tidbyt.dev/pixlet
 	elif [[ $ARCH == "windows-amd64"  ]]; then
 		echo "windows-amd64"
-		 CGO_LDFLAGS="-lsharpyuv" go build -ldflags="-s -extldflags=-static -X 'tidbyt.dev/pixlet/cmd.Version=${PIXLET_VERSION}' -lsharpyuv" -tags timetzdata -o build/${RELEASE_PLATFORM}_${RELEASE_ARCH}/pixlet.exe tidbyt.dev/pixlet
+		 CGO_LDFLAGS="-lsharpyuv" go build -ldflags="-s -extldflags=-static -X 'tidbyt.dev/pixlet/cmd.Version=${PIXLET_VERSION}'" -tags timetzdata -o build/${RELEASE_PLATFORM}_${RELEASE_ARCH}/pixlet.exe tidbyt.dev/pixlet
 	else
 		echo "other"
 		CGO_CFLAGS="-I/tmp/${LIBWEBP_VERSION}/${ARCH}/include" CGO_LDFLAGS="-L/tmp/${LIBWEBP_VERSION}/${ARCH}/lib -lsharpyuv" CGO_ENABLED=1 GOOS=$RELEASE_PLATFORM GOARCH=$RELEASE_ARCH go build -ldflags="-X 'tidbyt.dev/pixlet/cmd.Version=${PIXLET_VERSION}'" -o build/${RELEASE_PLATFORM}_${RELEASE_ARCH}/pixlet tidbyt.dev/pixlet

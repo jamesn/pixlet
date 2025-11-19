@@ -17,6 +17,25 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.25.4"
+          cache-dependency-path: go.sum
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Cache buildifier
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/buildifier
+          key: ${{ runner.os }}-buildifier-latest
+          restore-keys: |
+            ${{ runner.os }}-buildifier-
 
       - name: Install buildifier
         run: make install-buildifier
@@ -40,11 +59,31 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.25.4"
+          cache-dependency-path: go.sum
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Install Node
         uses: actions/setup-node@v4
         with:
           node-version: "16"
+          cache: 'npm'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
@@ -75,7 +114,7 @@ jobs:
           pacman -S --noconfirm mingw-w64-x86_64-libwebp
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build frontend
         run: npm run build
@@ -97,6 +136,8 @@ jobs:
           set MSYSTEM=MINGW64
           make build
         if: matrix.os == 'windows-latest'
+        env:
+          CGO_LDFLAGS: "-lsharpyuv"
 
       - name: Test Linux
         run: make test
@@ -119,7 +160,7 @@ jobs:
       - name: Set pixlet version
         id: vars
         run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'macos-latest'
+        if: (matrix.os == 'ubuntu-24.04' || matrix.os == 'macos-latest') && startsWith(github.ref, 'refs/tags/')
 
       - name: Set Windows pixlet version
         id: windowsvars
@@ -127,16 +168,16 @@ jobs:
         run: |
           set MSYSTEM=MINGW64
           echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
 
       - name: Build Release Linux
-        if: matrix.os == 'ubuntu-24.04'
+        if: matrix.os == 'ubuntu-24.04' && startsWith(github.ref, 'refs/tags/')
         run: make release-linux
         env:
           PIXLET_VERSION: ${{ steps.vars.outputs.tag }}
 
       - name: Build Release macOS
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/')
         run: make release-macos
         env:
           PIXLET_VERSION: ${{ steps.vars.outputs.tag }}
@@ -144,7 +185,7 @@ jobs:
           CGO_CPPFLAGS: "-I/opt/homebrew/include"
 
       - name: Build Release Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
         shell: msys2 {0}
         run: |
           set MSYSTEM=MINGW64
@@ -153,10 +194,12 @@ jobs:
           PIXLET_VERSION: ${{ steps.windowsvars.outputs.tag }}
 
       - name: Upload Release Artifacts
+        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ matrix.os }}
           path: build
+          retention-days: 7
 
   create-release:
     name: Create Github Release
@@ -171,14 +214,104 @@ jobs:
         with:
           fetch-depth: "0"
 
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.25.4"
+      - name: Extract Tag Version
+        id: tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "version=${TAG}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Extracted tag: ${TAG}"
 
       - name: Fetch Release Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v5
         with:
-          name: release-artifacts
+          pattern: release-artifacts-*
           path: build
+          merge-multiple: true
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p release-assets
+          
+          # Set execute permissions BEFORE creating archives
+          # This ensures the permissions are preserved in the tar files
+          [ -f build/linux_amd64/pixlet ] && chmod +x build/linux_amd64/pixlet
+          [ -f build/linux_arm64/pixlet ] && chmod +x build/linux_arm64/pixlet
+          [ -f build/darwin_amd64/pixlet ] && chmod +x build/darwin_amd64/pixlet
+          [ -f build/darwin_arm64/pixlet ] && chmod +x build/darwin_arm64/pixlet
+          
+          # Package Linux binaries
+          if [ -f build/linux_amd64/pixlet ]; then
+            tar -czf release-assets/pixlet_${TAG}_linux_amd64.tar.gz -C build/linux_amd64 pixlet
+          fi
+          
+          if [ -f build/linux_arm64/pixlet ]; then
+            tar -czf release-assets/pixlet_${TAG}_linux_arm64.tar.gz -C build/linux_arm64 pixlet
+          fi
+          
+          # Package macOS binaries
+          if [ -f build/darwin_amd64/pixlet ]; then
+            tar -czf release-assets/pixlet_${TAG}_darwin_amd64.tar.gz -C build/darwin_amd64 pixlet
+          fi
+          
+          if [ -f build/darwin_arm64/pixlet ]; then
+            tar -czf release-assets/pixlet_${TAG}_darwin_arm64.tar.gz -C build/darwin_arm64 pixlet
+          fi
+          
+          # Package Windows binary
+          if [ -f build/windows_amd64/pixlet.exe ]; then
+            zip -j release-assets/pixlet_${TAG}_windows_amd64.zip build/windows_amd64/pixlet.exe
+          fi
+          
+          # Generate checksums
+          cd release-assets
+          sha256sum *.tar.gz *.zip > checksums.txt || true
+          cd ..
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+
+      - name: Generate Release Notes
+        id: release-notes
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          
+          # Extract release notes from tag message or generate from commits
+          if git tag -l --format='%(contents)' "$TAG" | grep -q .; then
+            NOTES=$(git tag -l --format='%(contents)' "$TAG")
+          else
+            # Generate notes from commits since last tag
+            PREV_TAG=$(git describe --tags --abbrev=0 "$TAG"^ 2>/dev/null || echo "")
+            if [ -z "$PREV_TAG" ]; then
+              NOTES="## What's Changed\n\n* Full changelog: https://github.com/${{ github.repository }}/compare/$TAG\n"
+            else
+              NOTES="## What's Changed\n\n* Full changelog: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...$TAG\n"
+            fi
+          fi
+          
+          NOTES="${NOTES}\n\n## Downloads\n\n"
+          NOTES="${NOTES}- **Linux (amd64)**: [pixlet_${TAG}_linux_amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/$TAG/pixlet_${TAG}_linux_amd64.tar.gz)\n"
+          NOTES="${NOTES}- **Linux (arm64)**: [pixlet_${TAG}_linux_arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/$TAG/pixlet_${TAG}_linux_arm64.tar.gz)\n"
+          NOTES="${NOTES}- **macOS (amd64)**: [pixlet_${TAG}_darwin_amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/$TAG/pixlet_${TAG}_darwin_amd64.tar.gz)\n"
+          NOTES="${NOTES}- **macOS (arm64)**: [pixlet_${TAG}_darwin_arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/$TAG/pixlet_${TAG}_darwin_arm64.tar.gz)\n"
+          NOTES="${NOTES}- **Windows (amd64)**: [pixlet_${TAG}_windows_amd64.zip](https://github.com/${{ github.repository }}/releases/download/$TAG/pixlet_${TAG}_windows_amd64.zip)\n"
+          NOTES="${NOTES}- **Checksums**: [checksums.txt](https://github.com/${{ github.repository }}/releases/download/$TAG/checksums.txt)\n"
+          
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          body: ${{ steps.release-notes.outputs.notes }}
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+          files: |
+            release-assets/*.tar.gz
+            release-assets/*.zip
+            release-assets/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
