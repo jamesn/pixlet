@@ -17,8 +17,8 @@ jobs:
           go-version: "1.25.4"
 
       - name: List /etc/apt
-        run: ls -la /etc/apt
-        
+        run: find /etc/apt -type f -ls
+
       - name: Install buildifier
         run: make install-buildifier
 
