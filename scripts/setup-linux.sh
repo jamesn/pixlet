@@ -2,11 +2,8 @@
 
 set -e
 
-rm -f /etc/apt/apt-mirrors.txt
-rm -f /etc/apt/sources.list.d/*
-
 dpkg --add-architecture arm64
-cat <<EOT > /etc/apt/sources.list.d/ubuntu.sources
+cat <<EOT > /etc/apt/sources.list
 deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted
 deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted
 deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble universe
@@ -30,7 +27,7 @@ deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security universe
 deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security multiverse
 EOT
 
-apt-get update 
+apt-get update || true
 apt-get install -y \
     libwebp-dev \
     libwebp-dev:arm64 \
