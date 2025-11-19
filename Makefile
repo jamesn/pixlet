@@ -15,6 +15,19 @@ all: build
 test:
 	go test $(TAGS) -v -cover ./...
 
+test-coverage:
+	go test $(TAGS) -coverprofile=coverage.out -covermode=atomic ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+	@echo "Coverage summary:"
+	@go tool cover -func=coverage.out | tail -1
+
+test-coverage-check:
+	@go test $(TAGS) -coverprofile=coverage.out -covermode=atomic ./...
+	@echo "Coverage summary:"
+	@go tool cover -func=coverage.out | tail -1
+	@echo "Full report: coverage.html"
+
 clean:
 	rm -f $(BINARY)
 	rm -rf ./build
