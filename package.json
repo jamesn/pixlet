@@ -8,8 +8,8 @@
     "example": "examples"
   },
   "scripts": {
-    "start": "NODE_OPTIONS='--localstorage-file=/tmp/pixlet-localstorage' webpack serve --config webpack.dev.js",
-    "build": "NODE_OPTIONS='--localstorage-file=/tmp/pixlet-localstorage' webpack --config webpack.prod.js",
+    "start": "webpack serve --config webpack.dev.js",
+    "build": "webpack --config webpack.prod.js",
     "clean": "rm -rf dist/static/ && git restore dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
