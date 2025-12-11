@@ -152,8 +152,8 @@ func (b *Browser) schemaHandlerHandler(w http.ResponseWriter, r *http.Request) {
 
 	data, err := b.loader.CallSchemaHandler(r.Context(), vars["handler"], msg.Param)
 	if err != nil {
-		w.WriteHeader(500)
-		fmt.Fprintln(w, err)
+		log.Printf("schema handler error: %v", err)
+		fmt.Fprintln(w, "Internal server error")
 		return
 	}
 
