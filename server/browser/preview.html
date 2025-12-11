@@ -58,7 +58,7 @@
 						err.innerHTML = "";
 						break;
 					case "error":
-						err.innerHTML = data.message;
+						err.textContent = data.message;
 						break;
 					default:
 						console.log(`unknown type ${data.type}`);
