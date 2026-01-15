@@ -143,6 +143,18 @@ jobs:
         run: make test
         if: matrix.os == 'ubuntu-24.04'
 
+      - name: Test Coverage Linux
+        if: matrix.os == 'ubuntu-24.04'
+        run: make test-coverage
+
+      - name: Upload Coverage Linux
+        if: matrix.os == 'ubuntu-24.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.html
+          retention-days: 30
+
       - name: Test macOS
         run: make test
         if: matrix.os == 'macos-latest'
