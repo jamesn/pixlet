@@ -11,7 +11,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gitsight/go-vcsurl v1.0.1
-	github.com/go-git/go-git/v5 v5.16.3
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/google/pprof v0.0.0-20251114195745-4902fdda35c8
 	github.com/google/tink/go v1.7.0
