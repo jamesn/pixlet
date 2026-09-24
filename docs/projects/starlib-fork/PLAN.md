@@ -58,7 +58,7 @@ Facts:
 |---|----------|--------|-----------|
 | D1 | Fork vs. vendor into Pixlet | **Fork** (separate repo) | Owner preference; independent CI and history; reusable. |
 | D2 | Module path | **Rename** to `github.com/jamesn/starlib` | A `replace` directive in Pixlet would work for building Pixlet, but is ignored by anyone importing `tidbyt.dev/pixlet` as a library. A real path is unambiguous. |
-| D3 | Repo visibility | **Public** (recommended) | Private modules need `GOPRIVATE` plus credentials in every CI job and on every dev machine. MIT allows public. *(Owner to confirm.)* |
+| D3 | Repo visibility | **Public** (decided 2026-09-24) | Private modules need `GOPRIVATE` plus credentials in every CI job and on every dev machine. MIT allows public. |
 | D4 | Package scope | **Trim** to the 8 modules + `util` (+ `testdata` helper) | Removes unused deps and maintenance surface. |
 | D5 | Versioning | Semver tags starting at `v0.6.0` | Continues after upstream's `v0.5.x`; Pixlet pins exact tags. |
 
@@ -165,7 +165,6 @@ Each step is its own fork PR and tag, followed by a Pixlet bump PR that runs the
 |------|------------|------------|
 | Dependency updates (goquery, x/net/html) change parsing of malformed HTML | Medium | Conformance suite includes malformed-HTML cases; pin the dependency if it differs. |
 | Error text changes when removing `pkg/errors` | Medium | R2 plus error-text assertions in the conformance suite. |
-| Private-repo friction if D3 goes private | Low/Med | Recommend public. |
 | Maintenance fatigue (a second repo) | Medium | Dependabot plus grouped updates keep it to about one PR per week. |
 
 ## 10. Deliverables checklist
@@ -178,8 +177,7 @@ Each step is its own fork PR and tag, followed by a Pixlet bump PR that runs the
 
 ## 11. Open questions
 
-1. D3: public or private fork? (Recommended: public.)
-2. Should Pixlet's own `starlarkhttp` module (currently derived from starlib's
+1. Should Pixlet's own `starlarkhttp` module (currently derived from starlib's
    `http`) move into the fork too? Proposed: **no**. It contains Pixlet-specific
    caching and belongs with Pixlet.
-3. Any modules you'd like added later (e.g. `yaml`)? Out of scope for this project, but the fork makes it possible.
+2. Any modules you'd like added later (e.g. `yaml`)? Out of scope for this project, but the fork makes it possible.

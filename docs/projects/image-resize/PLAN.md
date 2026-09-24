@@ -50,6 +50,12 @@ breaks contract C1 (pixel-identical renders).
 - G2: Pixel-identical output for every input `render.Image` accepts (C1).
 - G3: No performance regression in `BenchmarkRunAndRender`.
 
+**Owner input (2026-09-24):** none of the owner's apps downscale images, but
+geometric compatibility must be maintained for all apps. Geometry (output
+dimensions, aspect-ratio handling, zero-dimension semantics, frame count and
+per-frame alignment) is therefore a **hard requirement** (R0). Pixel-identical
+output (G2) remains the target, and Option D delivers both.
+
 **Non-goals**
 - New scaling modes or quality improvements (could be a later additive
   `render.Image(scale_mode=...)` option; see §8).
@@ -69,6 +75,7 @@ updated and one caller. A separate repo adds release overhead with no benefit.
 
 ## 5. Requirements
 
+- **R0 (geometry, hard gate)** For every input and requested `width`/`height`, the output MUST have exactly the same dimensions and bounds origin as today, including: the aspect-ratio dimension Pixlet computes (`int()` truncation), nfnt's "0 = preserve aspect ratio" rule when a computed dimension is 0, and identical frame count for animated sources. This holds even if a future opt-in scaling mode (Phase 3) changes pixel values.
 - **R1** Output MUST be pixel-identical to `nfnt/resize` for every case in the golden corpus (§6, Phase 0).
 - **R2** The returned image type for each input type MUST match nfnt's (e.g. Paletted → RGBA64), because downstream drawing and encoding may depend on it.
 - **R3** Zero-dimension semantics MUST match (0 = preserve aspect ratio).
@@ -93,6 +100,7 @@ Build the safety net first, against the current library.
 3. Generate expected outputs **with the current `nfnt/resize`**; store SHA-256 of
    raw pixel data plus the concrete Go type in `golden.json`.
 4. Test `TestResizeGolden` asserts every case against `golden.json`.
+   Record output bounds separately from pixel hashes, so a geometry failure (R0) is reported distinctly from a pixel difference (R1).
 5. Add an end-to-end check: render every `examples/*.star` that uses
    `render.Image(width=…/height=…)`, plus a dedicated test app that scales a GIF, and
    store output hashes.
@@ -151,7 +159,6 @@ widget API (additive).
 
 ## 10. Open questions
 
-1. Do any of your sign apps rely on downscaling images (for example, large
-   weather icons shrunk to fit)? If so, their averaged look is what Phase 0 locks in.
+1. ~~Do any apps downscale?~~ Answered: no, but geometric compatibility is required (R0).
 2. Is there interest in the Phase 3 "crisp" mode for pixel-art sources, where
    averaging blurs hard edges?
