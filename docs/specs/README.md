@@ -68,8 +68,8 @@ verification.
 | Spec | Title | Contract at risk |
 |------|-------|------------------|
 | [007](007-tink-migration.md) | Migrate `google/tink/go` → `tink-crypto/tink-go/v2` | C5 |
-| [008](008-starlib-vendoring.md) | Vendor the archived `qri-io/starlib` modules | C2 |
-| [009](009-image-resize-replacement.md) | Replace archived `nfnt/resize` | C1 |
+| [008](008-starlib-vendoring.md) | ~~Vendor `qri-io/starlib`~~. Now its own project: [starlib fork](../projects/starlib-fork/PLAN.md) | C2 |
+| [009](009-image-resize-replacement.md) | ~~Replace `nfnt/resize`~~. Now its own project: [image resize](../projects/image-resize/PLAN.md) | C1 |
 | [010](010-frontend-icon-bundle.md) | Reduce Font Awesome bundle size | Schema icons in apps |
 
 ### Phase 4: Device programming independence
@@ -82,6 +82,15 @@ The signs are currently programmed through the Tidbyt cloud API
 (`api.tidbyt.com`). Spec 011 keeps that path as the default and adds an
 abstraction so a self-hosted target can be added without breaking existing
 commands.
+
+## Projects
+
+Larger efforts that span multiple PRs (and possibly repos) are planned as projects:
+
+| Project | Summary |
+|---------|---------|
+| [Fork and maintain starlib](../projects/starlib-fork/PLAN.md) | Fork `qri-io/starlib` to `jamesn/starlib`, trim it to the 8 modules Pixlet uses, and maintain it with CI and conformance tests. |
+| [Replace nfnt/resize](../projects/image-resize/PLAN.md) | Bring the exact resize algorithm in-house behind a golden-image corpus. `x/image/draw` was verified to change downscaled output. |
 
 ## Sequencing
 

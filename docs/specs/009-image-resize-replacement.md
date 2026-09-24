@@ -1,6 +1,6 @@
 # 009: Replace Archived `nfnt/resize`
 
-Status: Draft (low priority)
+Status: Superseded by [`docs/projects/image-resize/PLAN.md`](../projects/image-resize/PLAN.md)
 
 ## Summary
 

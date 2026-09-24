@@ -1,6 +1,6 @@
 # 008: Vendor the Archived `qri-io/starlib` Modules
 
-Status: Draft
+Status: Superseded by [`docs/projects/starlib-fork/PLAN.md`](../projects/starlib-fork/PLAN.md)
 
 ## Summary
 
