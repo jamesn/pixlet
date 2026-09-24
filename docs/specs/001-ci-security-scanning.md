@@ -1,6 +1,6 @@
 # 001: Vulnerability Scanning in CI
 
-Status: Draft
+Status: In progress (Phase 1 PR)
 
 ## Summary
 
@@ -35,25 +35,17 @@ Non-goals:
 
 ## Design
 
-Add a `security` job to `.github/workflows/pull-request.yml`:
+One workflow, `.github/workflows/security.yml`, triggered by `pull_request`,
+a weekly `schedule` (Mondays 13:00 UTC), and `workflow_dispatch`. Keeping PR
+and scheduled scans in one file avoids duplicating the steps.
 
-```yaml
-security:
-  runs-on: ubuntu-24.04
-  steps:
-    - uses: actions/checkout@<pinned>
-    - uses: actions/setup-go@<pinned>
-      with: { go-version-file: go.mod }
-    - uses: actions/setup-node@<pinned>
-      with: { node-version: "22", cache: npm }
-    - run: sudo ./scripts/setup-linux.sh        # libwebp headers
-    - run: go run golang.org/x/vuln/cmd/govulncheck@v1.x.y ./...
-    - run: npm ci
-    - run: npm audit --audit-level=high
-```
+- **govulncheck** job: `setup-go` from `go.mod`, `libwebp-dev` from apt (cgo
+  headers), then `go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...` (R1, R4, R6, R7).
+- **npm-audit** job: `setup-node` 22, `npm ci`, `npm audit --audit-level=high` (R2, R5).
+- `permissions: contents: read`.
 
-Add `.github/workflows/security-scheduled.yml` with the same steps, triggered by
-`schedule: - cron: "0 13 * * 1"` (weekly) and `workflow_dispatch`.
+Verified locally before merge: both pass on the Phase 1 branch, and
+govulncheck exits non-zero (3) after downgrading to known-vulnerable versions.
 
 ## Compatibility
 

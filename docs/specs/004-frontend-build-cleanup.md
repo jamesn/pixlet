@@ -1,6 +1,6 @@
 # 004: Remove Dead Frontend Build Dependencies
 
-Status: Draft
+Status: In progress (Phase 1 PR)
 
 ## Summary
 
