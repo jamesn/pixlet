@@ -29,7 +29,7 @@ keep working?*
 | P1 | **Secure by default** | No known vulnerabilities ship; new ones are caught automatically. | `govulncheck` = 0, `npm audit` high/critical = 0, on every PR and weekly. |
 | P2 | **Never break existing apps** | Existing `.star` apps, CLI usage, config, and secrets keep working unchanged. | Compatibility contracts C1–C6 (§3) enforced by tests. |
 | P3 | **Own the critical path** | Replace archived or abandoned dependencies with code we control. | Count of archived/unmaintained deps in the render and runtime path → 0. |
-| P4 | **Reduce vendor lock-in** | The signs can be programmed without the Tidbyt cloud if it disappears. | A working self-hosted push path exists (even if unused). |
+| P4 | **Reduce vendor lock-in** | The signs keep working without the Tidbyt cloud. This requires firmware we control, not just a push path. | At least one sign runs on firmware + server the owner builds; ultimately all signs. |
 | P5 | **Cheap to maintain** | Routine upkeep is small, automated, and predictable. | About 1 grouped dependency PR per ecosystem per week; CI green on `main`. |
 
 When pillars conflict, **P2 wins over everything except a critical
@@ -114,13 +114,23 @@ Independent tracks. Each ships as its own PR(s) and minor release, in any order.
 has transitive deps), then Tink (security library), then resize (stable code,
 low urgency), with 010 whenever convenient.
 
+### 🧭 Independent track: Firmware fork (device independence)
+
+[Project: firmware fork](projects/firmware-fork/PLAN.md). Runs in parallel with the
+horizons above and neither blocks nor is blocked by them.
+
+Pixlet only produces images; the Tidbyt firmware only talks to the Tidbyt cloud.
+Real independence requires **firmware we control** plus **a server we run**.
+Approach: adopt open-source firmware and server → bench spike on one sign →
+multi-week pilot → fork under the owner's account with CI and signed OTA → roll
+out sign by sign. Phase 0 (research + hardware inventory) needs no hardware changes.
+
 ### 🌅 Future: Decision-gated work
 
 These need a decision or a new spec before work starts.
 
 | Item | Gate | Notes |
 |------|------|-------|
-| **Device independence (011 Phase B)** | Hardware model of the signs; auth approach | Options: stay on Tidbyt cloud / community server + replacement firmware / own minimal server. |
 | **Frontend platform modernization** | New spec | MUI 5 → current, `@mui/x-date-pickers` 5 → current, Redux Toolkit 1 → 2, react-redux 8 → 9, React 19 (unlocks react-router 8). Large UI-regression surface; needs a UI test harness first. |
 | **Dependency watch list review** | New spec | Assess the remaining forks and old pins in the render/runtime path: `tidbyt/go-libwebp` (cgo), `tidbyt/gg`, `srwiley/oksvg` + `rasterx`, `ericpauley/go-quantize`, `zachomedia/go-bdf`, `skip2/go-qrcode`, `manifoldco/promptui`, `newm4n/go-dfe`, `dustmop/soup` (via starlib). Classify each: fine / fork / replace. |
 | **Additive features** | Owner demand | e.g. opt-in `render.Image` scaling modes, new Starlark modules via the starlib fork, multi-sign push fan-out. |
@@ -131,7 +141,9 @@ These need a decision or a new spec before work starts.
 001 CI scanning ─┐
 005 hermetic ────┼──► 006 vet ──► (all Later items benefit from strict CI)
 002/003/004 ─────┘
-                 └──► 011 Phase A ──► 011 Phase B (gated on hardware decision)
+                 └──► 011 Phase A   (optional input to the firmware track's server)
+
+firmware fork (independent): Phase 0 research ─► bench spike ─► pilot ─► fork ─► rollout
 
 starlib fork:  Phase 0 conformance tests ─► fork ─► switch ─► modernize (soup decision)
 image resize:  Phase 0 golden corpus ─► internalize ─► remove dep
@@ -190,13 +202,14 @@ in a separate, earlier PR.
 | D-006 | 2026-09-24 | Internalize nfnt resize; **geometry is a hard gate** | `x/image/draw` changes downscale pixels; owner requires geometric compatibility | [resize plan](projects/image-resize/PLAN.md) |
 | D-007 | 2026-09-24 | Font Awesome: lazy-load, not selective registration | Selective registration breaks app-chosen schema icons | [010](specs/010-frontend-icon-bundle.md) |
 | D-008 | 2026-09-24 | Plan now for leaving the Tidbyt cloud; build only the abstraction (Phase A) | Low-cost insurance; device side depends on hardware | [011](specs/011-device-push-targets.md) |
+| D-010 | 2026-09-24 | Device independence = control the firmware; run it as an independent project (adopt → pilot → fork) | Stock firmware only talks to the Tidbyt cloud | [firmware plan](projects/firmware-fork/PLAN.md) |
 | D-009 | proposed | Dependabot as the only update bot | Renovate config is stale and set to automerge | [002](specs/002-dependency-automation.md) |
 
 ## 9. Risk register
 
 | Risk | Impact | Likelihood | Mitigation | Owner item |
 |------|--------|------------|------------|------------|
-| Tidbyt cloud API changes or shuts down | Signs stop updating | Unknown | 011 Phase A; data backup; Phase B options researched | Next / Future |
+| Tidbyt cloud API changes or shuts down | Signs stop updating | Unknown | Firmware fork project; Tidbyt data backup | Independent track |
 | New CVE in a dependency goes unnoticed | Security exposure | High without automation | 001 scheduled scans; 002 Dependabot | Now |
 | Archived dependency has an unfixable bug | Broken or insecure apps | Medium | starlib fork, resize internalization, Tink migration | Later |
 | A "harmless" upgrade changes app output | Signs show wrong content | Medium | Contracts C1–C6; characterization tests first; no automerge | All |
@@ -207,7 +220,7 @@ in a separate, earlier PR.
 
 | # | Question | Blocks |
 |---|----------|--------|
-| Q1 | Which hardware are the signs (Tidbyt Gen 1 / Gen 2 / other HUB75)? | 011 Phase B |
+| Q1 | Which hardware are the signs (Tidbyt Gen 1 / Gen 2 / other HUB75), and how many? | Firmware fork Phase 0 |
 | Q2 | For self-hosted push: is a static bearer token on the home network enough, or is OAuth needed? | 011 Phase A design detail |
 | Q3 | Is Renovate installed as a GitHub App on the repo? (If yes, uninstall it with 002.) | 002 |
 | Q4 | Target date or trigger for `v1.0.0`? | Release strategy |
@@ -222,6 +235,7 @@ docs/
 │   └── 001…011-*.md            ← individual specs
 └── projects/
     ├── starlib-fork/PLAN.md    ← multi-repo project
+    ├── firmware-fork/PLAN.md   ← independent track: device independence
     └── image-resize/PLAN.md    ← golden-corpus-gated project
 ```
 

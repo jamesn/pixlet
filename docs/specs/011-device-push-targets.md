@@ -103,7 +103,12 @@ server/browser/push.go┘                    └─ http   (Tidbyt-compatible AP
 - Contract tests: an `httptest.Server` records requests; the same test table runs
   against both targets and asserts identical method, path, headers, and body.
 
-### Phase B: Options for the device side (decision needed, separate spec)
+### Phase B: Device side (moved)
+
+> **Superseded:** Phase B is now the independent [firmware fork project](../projects/firmware-fork/PLAN.md).
+> Independence requires firmware we control, not only a push target. The options below are kept for history.
+
+#### Original Phase B options
 
 Once pixlet can push to any URL, the remaining question is what receives the
 image and drives the sign. Options:
