@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +15,13 @@ import (
 )
 
 func TestInitHTTP(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		fmt.Fprint(w, "ok")
+	}))
+	defer srv.Close()
+
 	c := NewInMemoryCache()
 	InitHTTP(c)
 
@@ -23,9 +32,12 @@ func TestInitHTTP(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, app)
 
-	screens, err := app.Run(context.Background())
+	screens, err := app.RunWithConfig(context.Background(), map[string]string{"url": srv.URL})
 	assert.NoError(t, err)
 	assert.NotNil(t, screens)
+
+	// Only the two cache misses in httpcache.star reach the server.
+	assert.Equal(t, int32(2), requests.Load())
 }
 
 // TestDetermineTTL tests the DetermineTTL function.
