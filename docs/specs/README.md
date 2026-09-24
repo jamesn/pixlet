@@ -3,6 +3,8 @@
 Status: Draft
 Last updated: 2026-09-24
 
+> Strategy, ordering, and the decision log live in the master roadmap: [`docs/ROADMAP.md`](../ROADMAP.md).
+
 This fork of Pixlet programs the sign boards in the house. Upstream (tidbyt/pixlet)
 is no longer maintained, so this plan describes how the fork stays secure,
 buildable, and useful. Each work item is a spec in this directory. Implementation
