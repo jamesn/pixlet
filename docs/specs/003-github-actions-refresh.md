@@ -1,6 +1,6 @@
 # 003: Refresh GitHub Actions Versions
 
-Status: Draft
+Status: In progress (Phase 1 PR)
 
 ## Summary
 
