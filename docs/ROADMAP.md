@@ -125,6 +125,11 @@ Approach: adopt open-source firmware and server → bench spike on one sign →
 multi-week pilot → fork under the owner's account with CI and signed OTA → roll
 out sign by sign. Phase 0 (research + hardware inventory) needs no hardware changes.
 
+The server runs on the owner's existing Kubernetes cluster:
+[Project: k8s hosting](projects/k8s-hosting/PLAN.md) (~2–5 days). Its Phase 1, a
+multi-arch **pixlet container image** published to `ghcr.io/jamesn/pixlet`, is
+useful on its own and can ship in any pixlet release.
+
 ### 🌅 Future: Decision-gated work
 
 These need a decision or a new spec before work starts.
@@ -203,6 +208,7 @@ in a separate, earlier PR.
 | D-007 | 2026-09-24 | Font Awesome: lazy-load, not selective registration | Selective registration breaks app-chosen schema icons | [010](specs/010-frontend-icon-bundle.md) |
 | D-008 | 2026-09-24 | Plan now for leaving the Tidbyt cloud; build only the abstraction (Phase A) | Low-cost insurance; device side depends on hardware | [011](specs/011-device-push-targets.md) |
 | D-010 | 2026-09-24 | Device independence = control the firmware; run it as an independent project (adopt → pilot → fork) | Stock firmware only talks to the Tidbyt cloud | [firmware plan](projects/firmware-fork/PLAN.md) |
+| D-011 | 2026-09-24 | Host the sign server on the existing Kubernetes cluster; publish a pixlet container image | Owner already runs a cluster; container-first server keeps deploys declarative | [k8s plan](projects/k8s-hosting/PLAN.md) |
 | D-009 | proposed | Dependabot as the only update bot | Renovate config is stale and set to automerge | [002](specs/002-dependency-automation.md) |
 
 ## 9. Risk register
@@ -224,6 +230,7 @@ in a separate, earlier PR.
 | Q2 | For self-hosted push: is a static bearer token on the home network enough, or is OAuth needed? | 011 Phase A design detail |
 | Q3 | Is Renovate installed as a GitHub App on the repo? (If yes, uninstall it with 002.) | 002 |
 | Q4 | Target date or trigger for `v1.0.0`? | Release strategy |
+| Q5 | Cluster details: distribution, node architectures, LoadBalancer, storage class, GitOps tool? | k8s hosting Phase 0 |
 
 ## 11. Document map
 
@@ -236,6 +243,7 @@ docs/
 └── projects/
     ├── starlib-fork/PLAN.md    ← multi-repo project
     ├── firmware-fork/PLAN.md   ← independent track: device independence
+    ├── k8s-hosting/PLAN.md     ← sign server on the home Kubernetes cluster
     └── image-resize/PLAN.md    ← golden-corpus-gated project
 ```
 

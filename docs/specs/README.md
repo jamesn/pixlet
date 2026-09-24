@@ -94,6 +94,7 @@ Larger efforts that span multiple PRs (and possibly repos) are planned as projec
 | [Fork and maintain starlib](../projects/starlib-fork/PLAN.md) | Fork `qri-io/starlib` to `jamesn/starlib`, trim it to the 8 modules Pixlet uses, and maintain it with CI and conformance tests. |
 | [Replace nfnt/resize](../projects/image-resize/PLAN.md) | Bring the exact resize algorithm in-house behind a golden-image corpus. `x/image/draw` was verified to change downscaled output. |
 | [Firmware fork](../projects/firmware-fork/PLAN.md) | **Independent track.** Adopt, pilot, then fork open-source firmware and server so the signs run without the Tidbyt cloud. Supersedes 011 Phase B. |
+| [Kubernetes hosting](../projects/k8s-hosting/PLAN.md) | Run the sign server on the existing home cluster; publish a multi-arch pixlet container image. Part of the firmware track. |
 
 ## Sequencing
 

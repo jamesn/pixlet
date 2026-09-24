@@ -96,7 +96,7 @@ TARGET
 | FD1 | Firmware base | Adopt community firmware → fork / write own | Phase 0 |
 | FD2 | Server base | Adopt the community server that pairs with FD1 → fork / build own around pixlet | Phase 0 |
 | FD3 | Device ↔ server protocol | Whatever FD1/FD2 use (preferred, less work) / define our own | Phase 0 |
-| FD4 | Where the server runs | Existing home machine / small dedicated box (e.g. Pi) / container on NAS | Phase 1 |
+| FD4 | Where the server runs | **Decided (2026-09-24): the owner's existing Kubernetes cluster.** See [k8s hosting plan](../k8s-hosting/PLAN.md). | Done |
 | FD5 | Repo layout | Separate forks (`jamesn/<firmware>`, `jamesn/<server>`) / monorepo | Phase 3 |
 | FD6 | Relationship to spec 011 Phase A | Keep pixlet push targets pointing at the server / server pulls and renders itself (push unnecessary) | Phase 1 |
 
@@ -132,7 +132,7 @@ own); a restore/recovery procedure documented; Tidbyt data backed up.
 ### Phase 1: Bench spike (one sign, off the wall)
 
 1. Dump the stock firmware from the pilot sign (if possible) and verify the dump.
-2. Stand up the chosen server on the home network (FD4). Point it at this pixlet fork.
+2. Stand up the chosen server on the home Kubernetes cluster (FD4; [k8s hosting plan](../k8s-hosting/PLAN.md) Phases 0–3). Point it at this pixlet fork.
 3. Flash the pilot sign with the chosen firmware; configure Wi-Fi and server URL.
 4. Install 2–3 of the owner's real apps; verify output matches the Tidbyt-rendered version (screenshots/WebP hashes).
 5. Test R1 (block `*.tidbyt.com`), R9 (pull power, kill Wi-Fi, stop server), R4 (USB recovery).
@@ -190,7 +190,7 @@ own); a restore/recovery procedure documented; Tidbyt data backed up.
 | Stock firmware can't be restored | One-way migration | Unknown | Answer in Phase 0; owner sign-off required (R5) |
 | Community project goes dormant | Fork carries all maintenance | Medium | That's why Phase 3 forks; choose the simplest codebase in Phase 0 |
 | Hardware revision differences between signs | Firmware works on some signs only | Medium | Inventory in Phase 0; test each revision before rollout |
-| Server machine failure | All signs stale | Medium | R9 (signs keep last content / retry), R12 backups, simple redeploy |
+| Server outage (cluster/pod) | All signs stale | Low–Med | R9 (signs keep last content / retry), R12 backups, Kubernetes self-healing ([k8s plan](../k8s-hosting/PLAN.md)) |
 | Unauthenticated OTA or open server port | Someone else controls the signs | Low | R6 signing; local-only server; no port forwarding |
 | Server's bundled pixlet differs from this fork | App output differences | Medium | Phase 3 step 4: pin to this fork |
 
@@ -207,5 +207,5 @@ own); a restore/recovery procedure documented; Tidbyt data backed up.
 
 1. Which hardware are the signs, and how many? *(Blocks Phase 0 evaluation.)*
 2. Is a one-way migration acceptable if restore-to-stock turns out to be impossible?
-3. Where should the server run (FD4)? Is there an always-on machine at home already?
+3. ~~Where should the server run (FD4)?~~ Answered: the existing Kubernetes cluster.
 4. Must any sign keep working with the Tidbyt mobile app during the transition (e.g. for other household members)?
