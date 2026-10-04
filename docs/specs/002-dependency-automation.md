@@ -1,6 +1,6 @@
 # 002: Consolidate Dependency Automation on Dependabot
 
-Status: In progress (Phase 1 PR)
+Status: Done (#13)
 
 ## Summary
 

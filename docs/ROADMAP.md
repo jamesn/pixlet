@@ -72,9 +72,10 @@ v1.1.0 changes `humanize.relative_time` output.
 | v0.41.0 released | Linux, macOS, Windows binaries published |
 | Spec plan + project plans written | `docs/specs/`, `docs/projects/` |
 
-### 🔨 Now: Maintenance baseline (target v0.42.0)
+### ✅ Done: Maintenance baseline (merged in #13; release v0.42.0)
 
-One low-risk PR. No runtime behavior changes.
+One low-risk PR. No runtime behavior changes. Follow-up: the npm audit gate
+now covers shipped dependencies only (see spec 001 revision).
 
 | Spec | Item | Pillar |
 |------|------|--------|
@@ -209,7 +210,8 @@ in a separate, earlier PR.
 | D-008 | 2026-09-24 | Plan now for leaving the Tidbyt cloud; build only the abstraction (Phase A) | Low-cost insurance; device side depends on hardware | [011](specs/011-device-push-targets.md) |
 | D-010 | 2026-09-24 | Device independence = control the firmware; run it as an independent project (adopt → pilot → fork) | Stock firmware only talks to the Tidbyt cloud | [firmware plan](projects/firmware-fork/PLAN.md) |
 | D-011 | 2026-09-24 | Host the sign server on the existing Kubernetes cluster; publish a pixlet container image | Owner already runs a cluster; container-first server keeps deploys declarative | [k8s plan](projects/k8s-hosting/PLAN.md) |
-| D-009 | proposed | Dependabot as the only update bot | Renovate config is stale and set to automerge | [002](specs/002-dependency-automation.md) |
+| D-009 | 2026-10-04 | Dependabot as the only update bot | Renovate config is stale and set to automerge | [002](specs/002-dependency-automation.md), #13 |
+| D-012 | 2026-10-04 | npm audit gates on shipped deps only; full audit is report-only | `braces` advisory with no fix in dev-only tooling would block every PR | [001](specs/001-ci-security-scanning.md) |
 
 ## 9. Risk register
 

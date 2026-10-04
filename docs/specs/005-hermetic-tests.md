@@ -1,6 +1,6 @@
 # 005: Make Network-Dependent Tests Hermetic
 
-Status: In progress (Phase 1 PR)
+Status: Done (#13)
 
 ## Summary
 
