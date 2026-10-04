@@ -61,6 +61,7 @@ These items do not change runtime behavior, so they can ship together.
 | Spec | Title | Risk |
 |------|-------|------|
 | [006](006-go-vet-cleanup.md) | Fix `go vet` findings and enforce vet in CI | Low |
+| [012](012-loader-builtin-module-names.md) | Fix: app files named after a built-in module (e.g. `humanize.star`) can't load it | Low (only cases that error today change) |
 
 ### Phase 3: Replace deprecated / archived libraries
 

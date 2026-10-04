@@ -3,7 +3,7 @@
 Status: Active
 Owner: @jamesn
 Last updated: 2026-09-24
-Current release: [v0.41.0](https://github.com/jamesn/pixlet/releases/tag/v0.41.0)
+Current release: [v0.42.0](https://github.com/jamesn/pixlet/releases/tag/v0.42.0)
 
 This is the top-level guide for development on this fork. It sets the strategy,
 the order of work, and the rules every change follows. Detail lives in the
@@ -93,6 +93,7 @@ the security baseline from decaying while the bigger work happens.
 | Item | Summary | Pillar |
 |------|---------|--------|
 | [006](specs/006-go-vet-cleanup.md) | Fix `go vet` findings (2 real context leaks, malformed struct tags); enforce vet in CI | P2, P5 |
+| [012](specs/012-loader-builtin-module-names.md) | Fix loader regression: files named after a built-in module (`humanize.star`, `qrcode.star`, …) can't load it; 3 examples fail | P2 |
 | [011 Phase A](specs/011-device-push-targets.md) | `Target` interface; Tidbyt stays default; opt-in Tidbyt-compatible HTTP target | P4 |
 | **Tidbyt data backup** (task, no spec) | Export device IDs and installations (`pixlet devices`, `pixlet list`) to a private location while the API works | P4 |
 
