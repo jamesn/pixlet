@@ -1,6 +1,6 @@
 # 001: Vulnerability Scanning in CI
 
-Status: In progress (Phase 1 PR)
+Status: Done (#13)
 
 ## Summary
 
@@ -26,10 +26,10 @@ Non-goals:
 ## Requirements
 
 - **R1** CI MUST run `govulncheck ./...` on pull requests to `main`.
-- **R2** CI MUST run `npm audit --audit-level=high` on pull requests to `main`.
+- **R2** CI MUST run `npm audit` on pull requests to `main`: a full report of all dependencies, plus a gating run over shipped (non-dev) dependencies.
 - **R3** A scheduled workflow MUST run both checks at least weekly against `main`.
 - **R4** A `govulncheck` finding in reachable code MUST fail the job.
-- **R5** `npm audit` MUST fail on high/critical findings. Moderate/low findings SHOULD be reported without failing, so a moderate advisory with no available fix does not block unrelated PRs.
+- **R5** `npm audit` MUST fail on high/critical findings in shipped (non-dev) dependencies. All other findings, including dev-only tooling, SHOULD be reported without failing, so an advisory with no available fix in build tooling does not block unrelated PRs.
 - **R6** The job MUST install `libwebp` headers (cgo), matching the existing build jobs.
 - **R7** The govulncheck version SHOULD be pinned for reproducible results.
 
@@ -41,8 +41,15 @@ and scheduled scans in one file avoids duplicating the steps.
 
 - **govulncheck** job: `setup-go` from `go.mod`, `libwebp-dev` from apt (cgo
   headers), then `go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...` (R1, R4, R6, R7).
-- **npm-audit** job: `setup-node` 22, `npm ci`, `npm audit --audit-level=high` (R2, R5).
+- **npm-audit** job: `setup-node` 22, `npm ci`, then a report-only `npm audit || true` and a gating `npm audit --omit=dev --audit-level=high` (R2, R5).
 - `permissions: contents: read`.
+
+**Revision (2026-10-04):** The gate was narrowed to shipped dependencies after
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (`braces` ≤ 3.0.3, high,
+no fixed release) appeared via `webpack-dev-server → http-proxy-middleware →
+micromatch → braces`. That path is used only by `npm start`, is not in the UI
+bundle or the binary, and only matches our own `/api` proxy pattern. The
+full report keeps it visible.
 
 Verified locally before merge: both pass on the Phase 1 branch, and
 govulncheck exits non-zero (3) after downgrading to known-vulnerable versions.
