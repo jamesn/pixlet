@@ -1,0 +1,53 @@
+name: security
+
+# Known-vulnerability scanning (docs/specs/001-ci-security-scanning.md).
+# Runs on every PR, weekly against main (to catch advisories published
+# after merge), and on demand.
+on:
+  pull_request:
+    branches:
+      - "*"
+  schedule:
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Install libwebp headers
+        run: sudo apt-get update && sudo apt-get install -y libwebp-dev
+
+      # Fails on vulnerabilities reachable from our code.
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+  npm-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # Reports every advisory but fails only on high/critical, so a
+      # moderate advisory with no fix available doesn't block unrelated PRs.
+      - name: Run npm audit
+        run: npm audit --audit-level=high

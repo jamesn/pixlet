@@ -1,0 +1,33 @@
+# Dependency update PRs. Nothing auto-merges: some upgrades change app
+# output (see docs/specs/README.md, contracts C1/C2), so every update is
+# reviewed and gated by CI. Security updates are enabled in repo settings.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # v1.1.0 changes humanize.relative_time output (drops a trailing
+      # space), which would change what existing apps display.
+      - dependency-name: github.com/dustin/go-humanize
+        versions: [">= 1.1.0"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
