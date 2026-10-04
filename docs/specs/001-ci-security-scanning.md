@@ -42,6 +42,7 @@ and scheduled scans in one file avoids duplicating the steps.
 - **govulncheck** job: `setup-go` from `go.mod`, `libwebp-dev` from apt (cgo
   headers), then `go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...` (R1, R4, R6, R7).
 - **npm-audit** job: `setup-node` 22, `npm ci`, then a report-only `npm audit || true` and a gating `npm audit --omit=dev --audit-level=high` (R2, R5).
+- `permissions: contents: read`.
 
 **Revision (2026-10-04):** The gate was narrowed to shipped dependencies after
 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (`braces` ≤ 3.0.3, high,
@@ -49,7 +50,6 @@ no fixed release) appeared via `webpack-dev-server → http-proxy-middleware →
 micromatch → braces`. That path is used only by `npm start`, is not in the UI
 bundle or the binary, and only matches our own `/api` proxy pattern. The
 full report keeps it visible.
-- `permissions: contents: read`.
 
 Verified locally before merge: both pass on the Phase 1 branch, and
 govulncheck exits non-zero (3) after downgrading to known-vulnerable versions.
